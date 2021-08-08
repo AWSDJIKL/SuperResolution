@@ -4,7 +4,7 @@
 '''
 # @Time    : 2021/8/5 15:43
 # @Author  : LINYANZHEN
-# @File    : test.py
+# @File    : model_test.py
 
 
 import numpy as np

@@ -71,7 +71,7 @@ def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch):
         if epoch_psnr > best_psnr:
             best_psnr = epoch_psnr
             # 保存最优模型
-            torch.save(model, "sub_pixel_convolution.pth")
+            torch.save(model, "../checkpoint/PerceptualLoss.pth")
             print("模型已保存")
 
         print("psnr:{}  best psnr:{}".format(epoch_psnr, best_psnr))
