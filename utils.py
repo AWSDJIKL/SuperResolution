@@ -5,6 +5,8 @@
 # @Time    : 2021/8/5 15:08
 # @Author  : LINYANZHEN
 # @File    : utils.py
+import os
+
 from PIL import Image
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -44,9 +46,9 @@ def load_image_ycbcr(image_path):
     :return:
     '''
     y, cb, cr = Image.open(image_path).convert('YCbCr').split()
-    y = Variable(ToTensor()(y))
-    cb = Variable(ToTensor()(cb))
-    cr = Variable(ToTensor()(cr))
+    # y = Variable(ToTensor()(y))
+    # cb = Variable(ToTensor()(cb))
+    # cr = Variable(ToTensor()(cr))
     return y, cb, cr
 
 
@@ -104,6 +106,44 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
+def test_model(model, test_image_path, upscale_factor):
+    '''
+    测试模型效果
+
+    :param model: 要测试的模型
+    :param test_image_path: 用于测试的图片的位置（尽量用绝对路径）
+    :param upscale_factor: 放大倍数
+    :return:
+    '''
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    model.to(device)
+    origin_image = Image.open(test_image_path).convert('RGB')
+    image_width = (origin_image.width // upscale_factor) * upscale_factor
+    image_height = (origin_image.height // upscale_factor) * upscale_factor
+    hr_image = origin_image.resize((image_width, image_height), resample=Image.BICUBIC)
+    lr_image = origin_image.resize((image_width // upscale_factor, image_height // upscale_factor),
+                                   resample=Image.BICUBIC)
+    img_name, suffix = os.path.splitext(test_image_path)
+    print(img_name)
+    print(suffix)
+    bicubic = lr_image.resize((image_width, image_height), resample=Image.BICUBIC)
+    psnr = calaculate_psnr(Variable(ToTensor()(origin_image)).to(device),
+                           Variable(ToTensor()(bicubic)).to(device))
+
+    print('bicubic PSNR: {}'.format(psnr))
+    bicubic.save(img_name + "_bicubic_x{}".format(upscale_factor) + suffix)
+
+    x = Variable(ToTensor()(lr_image)).to(device).unsqueeze(0)
+    y = Variable(ToTensor()(origin_image)).to(device)
+    with torch.no_grad():
+        out = model(x).clip(0, 1).squeeze()
+    psnr = calaculate_psnr(y, out)
+    print('{} PSNR: {}'.format(model.__class__.__name__, psnr))
+    out = tensor_to_image(out)
+    out.save(img_name + '_{}_x{}.'.format(model.__class__.__name__, upscale_factor) + suffix)
+    return
+
+
 def prepare_super_resolution_loaders(dataset_list):
     train_loader_list = []
     val_loader_list = []
@@ -116,6 +156,16 @@ def prepare_super_resolution_loaders(dataset_list):
 
 def get_super_resolution_dataloader(dataset_name):
     if dataset_name == "Aircraft":
+        from dataset import Aircraft
+        data_dir = "D:/Dataset/fgvc-aircraft-2013b/data/images"
+        train_labels = "D:/Dataset/fgvc-aircraft-2013b/data/images_train.txt"
+        val_labels = "D:/Dataset/fgvc-aircraft-2013b/data/images_val.txt"
+
+        train_loader = torch.utils.data.DataLoader(Aircraft.AircraftDataset(data_dir, train_labels, upscale_factor=3))
+        val_loader = torch.utils.data.DataLoader(Aircraft.AircraftDataset(data_dir, val_labels, upscale_factor=3))
+
+        return train_loader, val_loader
+    elif dataset_name == "Aircraft_ycbcr":
         from dataset import Aircraft
         data_dir = "D:/Dataset/fgvc-aircraft-2013b/data/images"
         train_labels = "D:/Dataset/fgvc-aircraft-2013b/data/images_train.txt"

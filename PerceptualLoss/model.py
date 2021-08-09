@@ -88,11 +88,15 @@ class Sub_pixel_conv(nn.Module):
         self.block3 = ResidualBlock(input_channels=64, output_channels=64)
         self.block4 = ResidualBlock(input_channels=64, output_channels=64)
         self.conv2 = nn.Conv2d(64, in_channels * (upscale_factor ** 2), (3, 3), (1, 1), (1, 1))
+
+        self.ConvTranspose = nn.ConvTranspose2d(in_channels=3, out_channels=3, kernel_size=(3, 3), stride=(3, 3))
+
         # 重新排列像素
         self.pixel_shuffle = nn.PixelShuffle(upscale_factor)
         self.relu = nn.ReLU()
 
     def forward(self, x):
+        i = self.ConvTranspose(x)
         x = self.conv1(x)
         x = self.relu(x)
         x = self.block1(x)
@@ -101,4 +105,5 @@ class Sub_pixel_conv(nn.Module):
         x = self.block4(x)
         x = self.conv2(x)
         x = self.pixel_shuffle(x)
-        return x
+        output = x + i
+        return output

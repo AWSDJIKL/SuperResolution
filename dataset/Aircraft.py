@@ -46,6 +46,39 @@ class AircraftDataset(torch.utils.data.Dataset):
         return len(self.img_list)
 
 
+class Aircraft_ycbcr_Dataset(torch.utils.data.Dataset):
+    def __init__(self, data_dir, img_list_file, upscale_factor=3, loader=utils.load_image_ycbcr):
+        '''
+        Aircraft数据集
+
+        :param data_dir:
+        :param img_list_file:
+        :param upscale_factor:
+        :param loader:
+        '''
+        super(Aircraft_ycbcr_Dataset, self).__init__()
+        self.img_list = []
+        with open(img_list_file, "r") as file:
+            for img in file.readlines():
+                self.img_list.append(os.path.join(data_dir, img.strip() + ".jpg"))
+        self.upscale_factor = upscale_factor
+        self.loader = loader
+
+    def __getitem__(self, index):
+        # img = self.loader(self.img_list[index])
+        y, cb, cr = self.loader(self.img_list[index])
+        width = (y.width // self.upscale_factor) * self.upscale_factor
+        height = (y.height // self.upscale_factor) * self.upscale_factor
+        lr_transform = utils.lr_transform((height, width), self.upscale_factor)
+        hr_transform = utils.hr_transform((height, width))
+        lr = lr_transform(y)
+        hr = hr_transform(y)
+        return lr, hr
+
+    def __len__(self):
+        return len(self.img_list)
+
+
 def prepare_dataloader():
     train_lr_img_dir = "D:/Dataset/fgvc-aircraft-2013b/data/train/lr"
     train_hr_img_dir = "D:/Dataset/fgvc-aircraft-2013b/data/train/hr"
@@ -68,10 +101,18 @@ def prepare_data_file(root_dir, img_list_file, output_path, upscale_factor):
 
 
 if __name__ == '__main__':
+    # data_dir = "D:/Dataset/fgvc-aircraft-2013b/data/images"
+    # train_labels = "D:/Dataset/fgvc-aircraft-2013b/data/images_train.txt"
+    # val_labels = "D:/Dataset/fgvc-aircraft-2013b/data/images_val.txt"
+    # train_data_path = "Aircraft_train.h5"
+    # val_data_path = "Aircraft_val.h5"
+    # prepare_data_file(data_dir, train_labels, train_data_path, 3)
+    # prepare_data_file(data_dir, val_labels, val_data_path, 3)
+
     data_dir = "D:/Dataset/fgvc-aircraft-2013b/data/images"
     train_labels = "D:/Dataset/fgvc-aircraft-2013b/data/images_train.txt"
     val_labels = "D:/Dataset/fgvc-aircraft-2013b/data/images_val.txt"
-    train_data_path = "Aircraft_train.h5"
-    val_data_path = "Aircraft_val.h5"
-    prepare_data_file(data_dir, train_labels, train_data_path, 3)
-    prepare_data_file(data_dir, val_labels, val_data_path, 3)
+
+    train_loader = torch.utils.data.DataLoader(Aircraft_ycbcr_Dataset(data_dir, train_labels, upscale_factor=3))
+    # val_loader = torch.utils.data.DataLoader(Aircraft_ycbcr_Dataset(data_dir, val_labels, upscale_factor=3))
+    print(train_loader.dataset[0])

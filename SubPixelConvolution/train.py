@@ -1,22 +1,22 @@
 # -*- coding: utf-8 -*-
 '''
-训练
+复现亚像素卷积的效果
 '''
-# @Time    : 2021/8/5 15:07
+# @Time    : 2021/7/14 16:28
 # @Author  : LINYANZHEN
 # @File    : train.py
 import random
-from torch import nn
+import torchvision.models
 from torch.optim.lr_scheduler import MultiStepLR
 import os
 import model
 import time
 import utils
 import torch
+import torch.nn as nn
 import matplotlib.pyplot as plt
 from PIL import Image
 from torchvision import transforms
-import lossfunction
 
 
 def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch):
@@ -35,35 +35,20 @@ def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch):
             y = y.to(device)
             out = model(x)
             optimizer.zero_grad()
-            # print(out.size())
-            # print(y.size())
-
             loss = criterion(out, y)
             loss.backward()
             epoch_loss += loss.item()
-            # print(epoch_loss)
             optimizer.step()
             count += len(x)
-            x = x.cpu()
-            y = y.cpu()
-            out = out.cpu()
-            loss.cpu()
-            torch.cuda.empty_cache()
-            # print(index)
         epoch_loss /= count
         count = 0
         model.eval()
-        with torch.no_grad():
-            for index, (x, y) in enumerate(val_loader, 0):
-                x = x.to(device)
-                y = y.to(device)
-                out = model(x)
-                epoch_psnr += utils.calaculate_psnr(y, out)
-                count += len(x)
-                x = x.cpu()
-                y = y.cpu()
-                out = out.cpu()
-                torch.cuda.empty_cache()
+        for index, (x, y) in enumerate(val_loader, 0):
+            x = x.to(device)
+            y = y.to(device)
+            out = model(x)
+            epoch_psnr += utils.calaculate_psnr(y, out)
+            count += len(x)
         epoch_psnr /= count
 
         psnr_list.append(epoch_psnr)
@@ -71,7 +56,7 @@ def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch):
         if epoch_psnr > best_psnr:
             best_psnr = epoch_psnr
             # 保存最优模型
-            torch.save(model.state_dict(), "../checkpoint/PerceptualLoss.pth")
+            torch.save(model.state_dict(), "sub_pixel_convolution.pth")
             print("模型已保存")
 
         print("psnr:{}  best psnr:{}".format(epoch_psnr, best_psnr))
@@ -99,7 +84,7 @@ if __name__ == '__main__':
     start_time = time.time()
 
     device = torch.device('cuda:0')
-    train_loader, test_loader = utils.get_super_resolution_dataloader("Aircraft")
+    train_loader, val_loader = utils.get_super_resolution_dataloader("Aircraft_ycbcr")
     # cudnn.benchmark = True
     model = model.Sub_pixel_conv(upscale_factor=3)
     model = model.to(device)
@@ -107,12 +92,16 @@ if __name__ == '__main__':
     lr = 1e-3
     epoch = 100
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    # 分模块调整学习率暂时作用不大
+    # optimizer = torch.optim.Adam([
+    #     {'params': model.first_part.parameters()},
+    #     {'params': model.last_part.parameters(), 'lr': lr * 10}
+    # ], lr=lr)
     # 调整学习率，在第40，80个epoch时改变学习率
     scheduler = MultiStepLR(optimizer, milestones=[int(epoch * 0.4), int(epoch * 0.8)], gamma=0.1)
-    # criterion = nn.MSELoss()
-    criterion = lossfunction.PerceptualLoss()
+    criterion = nn.MSELoss()
     # 训练模型
-    train_and_val(model, train_loader, test_loader, criterion, optimizer, epoch)
+    train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch)
     # 保存模型
     print("训练完成")
     print("总耗时:{}min".format((time.time() - start_time) / 60))
