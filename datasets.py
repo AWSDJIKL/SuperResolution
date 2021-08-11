@@ -38,8 +38,6 @@ class GeneralRGBDataset(Dataset):
         img = self.loader(self.img_list[index])
         width = (img.width // self.upscale_factor) * self.upscale_factor
         height = (img.height // self.upscale_factor) * self.upscale_factor
-        print(width)
-        print(height)
         lr = lr_transform((height, width), self.upscale_factor)(img)
         hr = hr_transform((height, width))(img)
         return lr, hr
@@ -50,15 +48,17 @@ class GeneralRGBDataset(Dataset):
 
 def get_train_image_list():
     file_dirs = [
-        "dataset/BSD500/BSR/BSD500/data/images",
-        "dataset/DIV2K_train/DIV2K_train_HR",
-        "dataset/DIV2K_valid/DIV2K_valid_HR",
+        "dataset/BSD500/BSR/BSDS500/data/images",
+        # "dataset/DIV2K_train/DIV2K_train_HR",
+        # "dataset/DIV2K_valid/DIV2K_valid_HR",
     ]
     image_path_list = []
     for i in file_dirs:
         for root, dirs, files in os.walk(i):
+            print(1)
             for image_path in files:
-                image_path_list.append(os.path.join(root, image_path))
+                if not ".db" in image_path:
+                    image_path_list.append(os.path.join(root, image_path))
     return image_path_list
 
 

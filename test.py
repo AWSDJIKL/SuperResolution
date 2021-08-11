@@ -5,6 +5,7 @@
 # @Time    : 2021/8/5 15:43
 # @Author  : LINYANZHEN
 # @File    : model_test.py
+import os
 
 import torch
 import numpy as np
@@ -12,5 +13,6 @@ from PIL import Image
 import h5py
 
 if __name__ == '__main__':
-    l = [0.4, 0.8]
-    print([i * 10 for i in l])
+    path="dataset/BSD500/BSR/BSDS500"
+    for root, dirs, files in os.walk("dataset/BSD500/BSR/BSD500/data/images"):
+        print(files)
