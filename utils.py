@@ -9,11 +9,13 @@ import os
 
 from PIL import Image
 import torch
-from torch.utils.data import Dataset, DataLoader
+import datasets
+from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.transforms import InterpolationMode
 from torch.autograd import Variable
 from torchvision.transforms import ToTensor
+import prepare_datasets
 
 
 def calaculate_psnr(img1, img2):
@@ -154,24 +156,11 @@ def prepare_super_resolution_loaders(dataset_list):
     return train_loader_list, val_loader_list
 
 
-def get_super_resolution_dataloader(dataset_name):
-    if dataset_name == "Aircraft":
-        from dataset import Aircraft
-        data_dir = "D:/Dataset/fgvc-aircraft-2013b/data/images"
-        train_labels = "D:/Dataset/fgvc-aircraft-2013b/data/images_train.txt"
-        val_labels = "D:/Dataset/fgvc-aircraft-2013b/data/images_val.txt"
-
-        train_loader = torch.utils.data.DataLoader(Aircraft.AircraftDataset(data_dir, train_labels, upscale_factor=3))
-        val_loader = torch.utils.data.DataLoader(Aircraft.AircraftDataset(data_dir, val_labels, upscale_factor=3))
-
-        return train_loader, val_loader
-    elif dataset_name == "Aircraft_ycbcr":
-        from dataset import Aircraft
-        data_dir = "D:/Dataset/fgvc-aircraft-2013b/data/images"
-        train_labels = "D:/Dataset/fgvc-aircraft-2013b/data/images_train.txt"
-        val_labels = "D:/Dataset/fgvc-aircraft-2013b/data/images_val.txt"
-
-        train_loader = torch.utils.data.DataLoader(Aircraft.AircraftDataset(data_dir, train_labels, upscale_factor=3))
-        val_loader = torch.utils.data.DataLoader(Aircraft.AircraftDataset(data_dir, val_labels, upscale_factor=3))
-
-        return train_loader, val_loader
+def get_super_resolution_dataloader(args):
+    train_list = prepare_datasets.get_train_image_list()
+    val_list = prepare_datasets.get_val_image_list()
+    train_loader = DataLoader(datasets.GeneralRGBDataset(train_list, upscale_factor=args.upscale_factor),
+                              batch_size=args.batch_size,
+                              num_workers=args.num_workers)
+    val_loader = DataLoader(datasets.GeneralRGBDataset(val_list, upscale_factor=args.upscale_factor))
+    return train_loader, val_loader

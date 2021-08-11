@@ -16,7 +16,6 @@ if __name__ == '__main__':
     upscale_factor = 3
     test_image_path = "img_test/test.jpg"
     state_dict_path = "checkpoint/PerceptualLoss.pth"
-    save_path = "test"
     cudnn.benchmark = True
     model = model.Sub_pixel_conv(upscale_factor)
     for name, parameters in torch.load(state_dict_path).items():

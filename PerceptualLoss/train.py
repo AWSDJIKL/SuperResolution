@@ -5,18 +5,21 @@
 # @Time    : 2021/8/5 15:07
 # @Author  : LINYANZHEN
 # @File    : train.py
-import random
-from torch import nn
-from torch.optim.lr_scheduler import MultiStepLR
-import os
-import model
+import argparse
+import sys
 import time
-import utils
-import torch
+
 import matplotlib.pyplot as plt
-from PIL import Image
-from torchvision import transforms
+import torch
+from torch.backends import cudnn
+from torch.optim.lr_scheduler import MultiStepLR
+
 import lossfunction
+import model
+
+# 下面是需要从上一级目录开始导入的模块
+sys.path.append("..")
+import utils  # noqa: E402
 
 
 def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch):
@@ -35,13 +38,9 @@ def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch):
             y = y.to(device)
             out = model(x)
             optimizer.zero_grad()
-            # print(out.size())
-            # print(y.size())
-
             loss = criterion(out, y)
             loss.backward()
             epoch_loss += loss.item()
-            # print(epoch_loss)
             optimizer.step()
             count += len(x)
             x = x.cpu()
@@ -49,7 +48,6 @@ def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch):
             out = out.cpu()
             loss.cpu()
             torch.cuda.empty_cache()
-            # print(index)
         epoch_loss /= count
         count = 0
         model.eval()
@@ -96,23 +94,29 @@ def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="感知损失模型")
+    parser.add_argument("--save_dir", default="checkpoint", type=str, help="model save dir")
+    parser.add_argument("--upscale_factor", default=3, type=int, help="scale factor, Default: 3")
+    parser.add_argument("--batch_size", default=160, type=int, help="batch_size")
+    parser.add_argument("--num_workers", default=8, type=int, help="num_workers")
+    parser.add_argument("--lr", default=1e-3, type=float, help="lr")
+    parser.add_argument("--epoch", default=100, type=int, help="epoch")
+
     start_time = time.time()
 
+    args = parser.parse_args()
     device = torch.device('cuda:0')
-    train_loader, test_loader = utils.get_super_resolution_dataloader("Aircraft")
-    # cudnn.benchmark = True
-    model = model.Sub_pixel_conv(upscale_factor=3)
+    train_loader, val_loader = utils.get_super_resolution_dataloader(args)
+    cudnn.benchmark = True
+    model = model.Sub_pixel_conv(args.upscale_factor)
     model = model.to(device)
-
-    lr = 1e-3
-    epoch = 100
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     # 调整学习率，在第40，80个epoch时改变学习率
-    scheduler = MultiStepLR(optimizer, milestones=[int(epoch * 0.4), int(epoch * 0.8)], gamma=0.1)
+    scheduler = MultiStepLR(optimizer, milestones=[int(args.epoch * 0.4), int(args.epoch * 0.8)], gamma=0.1)
     # criterion = nn.MSELoss()
-    criterion = lossfunction.PerceptualLoss()
+    criterion = lossfunction.vgg16()
     # 训练模型
-    train_and_val(model, train_loader, test_loader, criterion, optimizer, epoch)
+    train_and_val(model, train_loader, val_loader, criterion, optimizer, args.epoch)
     # 保存模型
     print("训练完成")
     print("总耗时:{}min".format((time.time() - start_time) / 60))
