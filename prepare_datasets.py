@@ -68,8 +68,8 @@ def uncompress(src_file, output_dir=None):
 
 
 def download_datasets(dataset_path):
-    if os.path.exists(dataset_path):
-        shutil.rmtree(dataset_path)
+    if not os.path.exists(dataset_path):
+        os.mkdir(dataset_path)
     for name, link in link_list.items():
         print(name)
         print(link)
@@ -117,8 +117,8 @@ def prepare_h5py(image_path_list, upscale_factor, output_path, crop_image=False,
     h5_file.close()
 
 
-
-
 if __name__ == '__main__':
+    print("开始下载数据集")
     dataset_path = "dataset"
     download_datasets(dataset_path)
+    print("所有数据集下载完成")
