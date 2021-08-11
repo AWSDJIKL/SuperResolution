@@ -7,7 +7,6 @@
 # @File    : test.py
 import torch
 import torch.backends.cudnn as cudnn
-import numpy as np
 from PIL import Image
 from torch.autograd import Variable
 import utils

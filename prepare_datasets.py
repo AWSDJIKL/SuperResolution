@@ -7,7 +7,6 @@
 # @File    : prepare_datasets.py
 import gzip
 import os
-import rarfile
 import shutil
 import tarfile
 import zipfile
@@ -148,11 +147,5 @@ def get_val_image_list():
 
 
 if __name__ == '__main__':
-    # dataset_path = "dataset"
-    # download_datasets(dataset_path)
-    # file_name = "dataset/Waterloo/exploration_database_and_code.rar"
-    # uncompress(file_name)
-    train_list = get_train_image_list()
-    val_list = get_val_image_list()
-    # prepare_h5py(train_list, 3, "dataset/train_x3.h5")
-    # prepare_h5py(val_list, 3, "dataset/val_x3.h5")
+    dataset_path = "dataset"
+    download_datasets(dataset_path)
