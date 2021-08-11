@@ -81,7 +81,7 @@ def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch):
             best_psnr = epoch_psnr
             # 保存psnr最优模型
             torch.save(model.state_dict(),
-                       "../checkpoint/PerceptualLoss_{}_{}_{}_best.pth".format(datetime.date.year,
+                       "checkpoint/PerceptualLoss_{}_{}_{}_best.pth".format(datetime.date.year,
                                                                                datetime.date.month, datetime.date.day))
             print("模型已保存")
 
@@ -91,7 +91,7 @@ def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch):
 
     # 保存最后一个epoch的模型，作为比对
     torch.save(model.state_dict(),
-               "../checkpoint/PerceptualLoss_{}_{}_{}_final_epoch.pth".format(datetime.date.year,
+               "checkpoint/PerceptualLoss_{}_{}_{}_final_epoch.pth".format(datetime.date.year,
                                                                               datetime.date.month, datetime.date.day))
     print("模型已保存")
 
