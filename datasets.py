@@ -49,8 +49,8 @@ class GeneralRGBDataset(Dataset):
 def get_train_image_list():
     file_dirs = [
         "dataset/BSD500/BSR/BSDS500/data/images",
-        # "dataset/DIV2K_train/DIV2K_train_HR",
-        # "dataset/DIV2K_valid/DIV2K_valid_HR",
+        "dataset/DIV2K_train/DIV2K_train_HR",
+        "dataset/DIV2K_valid/DIV2K_valid_HR",
     ]
     image_path_list = []
     for i in file_dirs:

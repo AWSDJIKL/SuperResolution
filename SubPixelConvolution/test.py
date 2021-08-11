@@ -4,7 +4,7 @@
 '''
 # @Time    : 2021/8/2 23:01
 # @Author  : LINYANZHEN
-# @File    : test.py
+# @File    : test_script.py
 import torch
 import torch.backends.cudnn as cudnn
 from PIL import Image

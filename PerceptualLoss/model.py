@@ -12,6 +12,12 @@ import typing
 
 class ResidualBlock(nn.Module):
     def __init__(self, input_channels, output_channels):
+        '''
+        残差块
+
+        :param input_channels: 输入通道数
+        :param output_channels: 输出通道数
+        '''
         super(ResidualBlock, self).__init__()
 
         self.conv1 = nn.Conv2d(input_channels, output_channels, (3, 3), (1, 1), (1, 1))
@@ -19,7 +25,7 @@ class ResidualBlock(nn.Module):
         self.conv2 = nn.Conv2d(output_channels, output_channels, (3, 3), (1, 1), (1, 1))
         self.bn2 = nn.BatchNorm2d(output_channels)
         self.conv1x1 = nn.Conv2d(input_channels, output_channels, (1, 1))
-        self.relu = nn.ReLU()
+        self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
         output = self.conv1(x)
@@ -34,14 +40,14 @@ class ResidualBlock(nn.Module):
         return output
 
 
-class Sub_pixel_conv(nn.Module):
+class ESCPN_with_PL(nn.Module):
     def __init__(self, upscale_factor, in_channels=3):
         '''
-        亚像素卷积网络
+        亚像素卷积网络(使用感知损失函数)
 
         :param upscale_factor: 放大倍数
         '''
-        super(Sub_pixel_conv, self).__init__()
+        super(ESCPN_with_PL, self).__init__()
         self.conv1 = nn.Conv2d(in_channels, 64, (5, 5), (1, 1), (2, 2))
         self.block1 = ResidualBlock(input_channels=64, output_channels=64)
         self.block2 = ResidualBlock(input_channels=64, output_channels=64)
@@ -53,7 +59,7 @@ class Sub_pixel_conv(nn.Module):
 
         # 重新排列像素
         self.pixel_shuffle = nn.PixelShuffle(upscale_factor)
-        self.relu = nn.ReLU()
+        self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
         i = self.ConvTranspose(x)

@@ -8,22 +8,13 @@
 import argparse
 import datetime
 import os
-import sys
 import time
-
 import matplotlib.pyplot as plt
 import torch
 from torch import nn
 from torch.backends import cudnn
 from torch.optim.lr_scheduler import MultiStepLR
-
-import lossfunction
-import model
-
-# 下面是需要从上一级目录开始导入的模块
-sys.path.append(os.getcwd())
-# print(os.getcwd())
-# print(os.path.abspath(os.path.join(os.getcwd(), "..")))
+from PerceptualLoss import lossfunction, model
 from utils import calaculate_psnr  # noqa: E402
 import datasets
 
@@ -81,8 +72,10 @@ def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch):
             best_psnr = epoch_psnr
             # 保存psnr最优模型
             torch.save(model.state_dict(),
-                       "checkpoint/PerceptualLoss_{}_{}_{}_best.pth".format(datetime.date.year,
-                                                                               datetime.date.month, datetime.date.day))
+                       "checkpoint/{}_{}_{}_{}_best.pth".format(model.__class__.__name__,
+                                                                str(datetime.date.today().year),
+                                                                str(datetime.date.today().month),
+                                                                str(datetime.date.today().day)))
             print("模型已保存")
 
         print("psnr:{}  best psnr:{}".format(epoch_psnr, best_psnr))
@@ -91,8 +84,10 @@ def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch):
 
     # 保存最后一个epoch的模型，作为比对
     torch.save(model.state_dict(),
-               "checkpoint/PerceptualLoss_{}_{}_{}_final_epoch.pth".format(datetime.date.year,
-                                                                              datetime.date.month, datetime.date.day))
+               "checkpoint/{}_{}_{}_{}_final_epoch.pth".format(model.__class__.__name__,
+                                                               str(datetime.date.today().year),
+                                                               str(datetime.date.today().month),
+                                                               str(datetime.date.today().day)))
     print("模型已保存")
 
     # 画图
@@ -126,7 +121,7 @@ if __name__ == '__main__':
     device = torch.device('cuda:0')
     train_loader, val_loader = datasets.get_super_resolution_dataloader(args)
     cudnn.benchmark = True
-    model = model.Sub_pixel_conv(args.upscale_factor)
+    model = model.ESCPN_with_PL(args.upscale_factor)
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     # 调整学习率，在第40，80个epoch时改变学习率
