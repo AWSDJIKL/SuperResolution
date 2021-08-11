@@ -6,6 +6,8 @@
 # @Author  : LINYANZHEN
 # @File    : train.py
 import argparse
+import datetime
+import os
 import sys
 import time
 
@@ -18,8 +20,11 @@ import lossfunction
 import model
 
 # 下面是需要从上一级目录开始导入的模块
-sys.path.append("..")
-import utils  # noqa: E402
+sys.path.append(os.getcwd())
+# print(os.getcwd())
+# print(os.path.abspath(os.path.join(os.getcwd(), "..")))
+from utils import calaculate_psnr  # noqa: E402
+import datasets
 
 
 def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch):
@@ -56,7 +61,7 @@ def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch):
                 x = x.to(device)
                 y = y.to(device)
                 out = model(x)
-                epoch_psnr += utils.calaculate_psnr(y, out)
+                epoch_psnr += calaculate_psnr(y, out)
                 count += len(x)
                 x = x.cpu()
                 y = y.cpu()
@@ -68,13 +73,22 @@ def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch):
         loss_list.append(epoch_loss)
         if epoch_psnr > best_psnr:
             best_psnr = epoch_psnr
-            # 保存最优模型
-            torch.save(model.state_dict(), "../checkpoint/PerceptualLoss.pth")
+            # 保存psnr最优模型
+            torch.save(model.state_dict(),
+                       "../checkpoint/PerceptualLoss_{}_{}_{}_best.pth".format(datetime.date.year,
+                                                                               datetime.date.month, datetime.date.day))
             print("模型已保存")
 
         print("psnr:{}  best psnr:{}".format(epoch_psnr, best_psnr))
         print("loss:{}".format(epoch_loss))
         print("  用时:{}min".format((time.time() - epoch_start_time) / 60))
+
+    #保存最后一个epoch的模型，作为比对
+    torch.save(model.state_dict(),
+               "../checkpoint/PerceptualLoss_{}_{}_{}_final_epoch.pth".format(datetime.date.year,
+                                                                       datetime.date.month, datetime.date.day))
+    print("模型已保存")
+
 
     # 画图
     plt.figure(figsize=(10, 5))
@@ -95,7 +109,6 @@ def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="感知损失模型")
-    parser.add_argument("--save_dir", default="checkpoint", type=str, help="model save dir")
     parser.add_argument("--upscale_factor", default=3, type=int, help="scale factor, Default: 3")
     parser.add_argument("--batch_size", default=160, type=int, help="batch_size")
     parser.add_argument("--num_workers", default=8, type=int, help="num_workers")
@@ -106,7 +119,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     device = torch.device('cuda:0')
-    train_loader, val_loader = utils.get_super_resolution_dataloader(args)
+    train_loader, val_loader = datasets.get_super_resolution_dataloader(args)
     cudnn.benchmark = True
     model = model.Sub_pixel_conv(args.upscale_factor)
     model = model.to(device)
@@ -114,7 +127,7 @@ if __name__ == '__main__':
     # 调整学习率，在第40，80个epoch时改变学习率
     scheduler = MultiStepLR(optimizer, milestones=[int(args.epoch * 0.4), int(args.epoch * 0.8)], gamma=0.1)
     # criterion = nn.MSELoss()
-    criterion = lossfunction.vgg16()
+    criterion = lossfunction.vgg16_loss()
     # 训练模型
     train_and_val(model, train_loader, val_loader, criterion, optimizer, args.epoch)
     # 保存模型

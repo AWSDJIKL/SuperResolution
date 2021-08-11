@@ -9,13 +9,11 @@ import os
 
 from PIL import Image
 import torch
-import datasets
-from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.transforms import InterpolationMode
 from torch.autograd import Variable
 from torchvision.transforms import ToTensor
-import prepare_datasets
+
 
 
 def calaculate_psnr(img1, img2):
@@ -146,21 +144,5 @@ def test_model(model, test_image_path, upscale_factor):
     return
 
 
-def prepare_super_resolution_loaders(dataset_list):
-    train_loader_list = []
-    val_loader_list = []
-    for dataset in dataset_list:
-        train_loader, val_loader = get_super_resolution_dataloader(dataset)
-        train_loader_list.append(train_loader)
-        val_loader_list.append(val_loader)
-    return train_loader_list, val_loader_list
 
 
-def get_super_resolution_dataloader(args):
-    train_list = prepare_datasets.get_train_image_list()
-    val_list = prepare_datasets.get_val_image_list()
-    train_loader = DataLoader(datasets.GeneralRGBDataset(train_list, upscale_factor=args.upscale_factor),
-                              batch_size=args.batch_size,
-                              num_workers=args.num_workers)
-    val_loader = DataLoader(datasets.GeneralRGBDataset(val_list, upscale_factor=args.upscale_factor))
-    return train_loader, val_loader

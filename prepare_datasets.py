@@ -117,33 +117,6 @@ def prepare_h5py(image_path_list, upscale_factor, output_path, crop_image=False,
     h5_file.close()
 
 
-def get_train_image_list():
-    file_dirs = [
-        "dataset/BSD500/BSR/BSD500/data/images",
-        "dataset/DIV2K_train/DIV2K_train_HR",
-        "dataset/DIV2K_valid/DIV2K_valid_HR",
-    ]
-    image_path_list = []
-    for i in file_dirs:
-        for root, dirs, files in os.walk(i):
-            for image_path in files:
-                image_path_list.append(os.path.join(root, image_path))
-    return image_path_list
-
-
-def get_val_image_list():
-    file_dirs = [
-        "dataset/set5/Set5/image_SRF_2",
-        "dataset/set14/Set14/image_SRF_2",
-        "dataset/Urban100/image_SRF_2",
-    ]
-    image_path_list = []
-    for i in file_dirs:
-        for root, dirs, files in os.walk(i):
-            for image_path in files:
-                if "_HR" in image_path:
-                    image_path_list.append(os.path.join(root, image_path))
-    return image_path_list
 
 
 if __name__ == '__main__':

@@ -12,5 +12,5 @@ from PIL import Image
 import h5py
 
 if __name__ == '__main__':
-    model = torch.load("../checkpoint/sub_pixel_convolution.pth")
-    print(model.__class__.__name__)
+    l = [0.4, 0.8]
+    print([i * 10 for i in l])
