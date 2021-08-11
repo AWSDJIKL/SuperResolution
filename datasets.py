@@ -38,6 +38,8 @@ class GeneralRGBDataset(Dataset):
         img = self.loader(self.img_list[index])
         width = (img.width // self.upscale_factor) * self.upscale_factor
         height = (img.height // self.upscale_factor) * self.upscale_factor
+        print(width)
+        print(height)
         lr = lr_transform((height, width), self.upscale_factor)(img)
         hr = hr_transform((height, width))(img)
         return lr, hr

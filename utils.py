@@ -64,7 +64,7 @@ def lr_transform(img_size, upscale_factor):
     # print("new size =", new_size)
     return transforms.Compose([
         transforms.CenterCrop(img_size),
-        transforms.Resize(new_size, interpolation=InterpolationMode.BICUBIC),
+        # transforms.Resize(new_size, interpolation=InterpolationMode.BICUBIC),
         transforms.ToTensor(),
     ])
 

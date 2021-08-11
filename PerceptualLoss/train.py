@@ -13,6 +13,7 @@ import time
 
 import matplotlib.pyplot as plt
 import torch
+from torch import nn
 from torch.backends import cudnn
 from torch.optim.lr_scheduler import MultiStepLR
 
@@ -83,12 +84,11 @@ def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch):
         print("loss:{}".format(epoch_loss))
         print("  用时:{}min".format((time.time() - epoch_start_time) / 60))
 
-    #保存最后一个epoch的模型，作为比对
+    # 保存最后一个epoch的模型，作为比对
     torch.save(model.state_dict(),
                "../checkpoint/PerceptualLoss_{}_{}_{}_final_epoch.pth".format(datetime.date.year,
-                                                                       datetime.date.month, datetime.date.day))
+                                                                              datetime.date.month, datetime.date.day))
     print("模型已保存")
-
 
     # 画图
     plt.figure(figsize=(10, 5))
@@ -110,8 +110,8 @@ def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="感知损失模型")
     parser.add_argument("--upscale_factor", default=3, type=int, help="scale factor, Default: 3")
-    parser.add_argument("--batch_size", default=160, type=int, help="batch_size")
-    parser.add_argument("--num_workers", default=8, type=int, help="num_workers")
+    parser.add_argument("--batch_size", default=1, type=int, help="batch_size")
+    parser.add_argument("--num_workers", default=1, type=int, help="num_workers")
     parser.add_argument("--lr", default=1e-3, type=float, help="lr")
     parser.add_argument("--epoch", default=100, type=int, help="epoch")
 
