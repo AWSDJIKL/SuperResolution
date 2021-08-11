@@ -29,6 +29,8 @@ import datasets
 
 
 def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch):
+    if not os.path.exists("checkpoint"):
+        os.mkdir("checkpoint")
     psnr_list = []
     loss_list = []
     best_psnr = 0
