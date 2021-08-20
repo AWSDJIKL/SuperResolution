@@ -49,13 +49,12 @@ class GeneralRGBDataset(Dataset):
 def get_train_image_list():
     file_dirs = [
         "dataset/BSD500/BSR/BSDS500/data/images",
-        "dataset/DIV2K_train/DIV2K_train_HR",
-        "dataset/DIV2K_valid/DIV2K_valid_HR",
+        # "dataset/DIV2K_train/DIV2K_train_HR",
+        # "dataset/DIV2K_valid/DIV2K_valid_HR",
     ]
     image_path_list = []
     for i in file_dirs:
         for root, dirs, files in os.walk(i):
-            print(1)
             for image_path in files:
                 if not ".db" in image_path:
                     image_path_list.append(os.path.join(root, image_path))
@@ -80,8 +79,6 @@ def get_val_image_list():
 def get_super_resolution_dataloader(args):
     train_list = get_train_image_list()
     val_list = get_val_image_list()
-    train_loader = DataLoader(GeneralRGBDataset(train_list, upscale_factor=args.upscale_factor),
-                              batch_size=args.batch_size,
-                              num_workers=args.num_workers)
+    train_loader = DataLoader(GeneralRGBDataset(train_list, upscale_factor=args.upscale_factor))
     val_loader = DataLoader(GeneralRGBDataset(val_list, upscale_factor=args.upscale_factor))
     return train_loader, val_loader

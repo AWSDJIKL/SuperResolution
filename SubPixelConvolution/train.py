@@ -86,7 +86,7 @@ if __name__ == '__main__':
     device = torch.device('cuda:0')
     train_loader, val_loader = utils.get_super_resolution_dataloader("Aircraft_ycbcr")
     # cudnn.benchmark = True
-    model = model.Sub_pixel_conv(upscale_factor=3)
+    model = model.SPCNet(upscale_factor=3)
     model = model.to(device)
 
     lr = 1e-3

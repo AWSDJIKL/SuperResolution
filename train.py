@@ -14,12 +14,16 @@ import torch
 from torch import nn
 from torch.backends import cudnn
 from torch.optim.lr_scheduler import MultiStepLR
-from PerceptualLoss import lossfunction, model
+
+import utils
+from PerceptualLoss import lossfunction
+from SubPixelConvolution import model
+# from ResizeConvolution import model
 from utils import calaculate_psnr  # noqa: E402
 import datasets
 
 
-def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch):
+def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch, experiment_name):
     if not os.path.exists("checkpoint"):
         os.mkdir("checkpoint")
     psnr_list = []
@@ -72,10 +76,7 @@ def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch):
             best_psnr = epoch_psnr
             # 保存psnr最优模型
             torch.save(model.state_dict(),
-                       "checkpoint/{}_{}_{}_{}_best.pth".format(model.__class__.__name__,
-                                                                str(datetime.date.today().year),
-                                                                str(datetime.date.today().month),
-                                                                str(datetime.date.today().day)))
+                       "checkpoint/{}_best.pth".format(experiment_name))
             print("模型已保存")
 
         print("psnr:{}  best psnr:{}".format(epoch_psnr, best_psnr))
@@ -84,10 +85,7 @@ def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch):
 
     # 保存最后一个epoch的模型，作为比对
     torch.save(model.state_dict(),
-               "checkpoint/{}_{}_{}_{}_final_epoch.pth".format(model.__class__.__name__,
-                                                               str(datetime.date.today().year),
-                                                               str(datetime.date.today().month),
-                                                               str(datetime.date.today().day)))
+               "checkpoint/{}_final_epoch.pth".format(experiment_name))
     print("模型已保存")
 
     # 画图
@@ -114,6 +112,9 @@ if __name__ == '__main__':
     parser.add_argument("--num_workers", default=1, type=int, help="num_workers")
     parser.add_argument("--lr", default=1e-3, type=float, help="lr")
     parser.add_argument("--epoch", default=100, type=int, help="epoch")
+    # parser.add_argument("--experiment_name", default="SPC_with_PL", type=str, help="experiment name")
+    # parser.add_argument("--use_pl", default=True, type=bool, help="use Perceptual Loss")
+    parser.add_argument("--use_pl", default=False, type=bool, help="use Perceptual Loss")
 
     start_time = time.time()
 
@@ -121,15 +122,21 @@ if __name__ == '__main__':
     device = torch.device('cuda:0')
     train_loader, val_loader = datasets.get_super_resolution_dataloader(args)
     cudnn.benchmark = True
-    model = model.ESCPN_with_PL(args.upscale_factor)
+    # model = model.SPCNet(args.upscale_factor)
+    model = model.Residual_SPC(args.upscale_factor)
+    # model = model.ResizeConvolution(args.upscale_factor)
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     # 调整学习率，在第40，80个epoch时改变学习率
-    scheduler = MultiStepLR(optimizer, milestones=[int(args.epoch * 0.4), int(args.epoch * 0.8)], gamma=0.1)
-    # criterion = nn.MSELoss()
-    criterion = lossfunction.vgg16_loss()
+    scheduler = MultiStepLR(optimizer, milestones=[int(args.epoch * 0.4), int(args.epoch * 0.8)], gamma=10)
+    if args.use_pl:
+        criterion = lossfunction.vgg16_loss()
+        experiment_name = model.__class__.__name__ + "_with_PL"
+    else:
+        criterion = nn.MSELoss()
+        experiment_name = model.__class__.__name__ + "_without_PL"
     # 训练模型
-    train_and_val(model, train_loader, val_loader, criterion, optimizer, args.epoch)
+    train_and_val(model, train_loader, val_loader, criterion, optimizer, args.epoch, experiment_name)
     # 保存模型
     print("训练完成")
-    print("总耗时:{}min".format((time.time() - start_time) / 60))
+    print("总耗时:" + utils.time_format(time.time() - start_time))

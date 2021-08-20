@@ -3,11 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 dataset/
-img_test/
 *.pth
 # C extensions
 *.so
-
+*.jpg
 # Distribution / packaging
 .Python
 build/

@@ -15,7 +15,6 @@ from torch.autograd import Variable
 from torchvision.transforms import ToTensor
 
 
-
 def calaculate_psnr(img1, img2):
     '''
     计算两张图片之间的PSNR误差
@@ -85,33 +84,31 @@ def tensor_to_image(tensor):
     return transforms.ToPILImage()(tensor)
 
 
-class AverageMeter(object):
-    '''
-    记录数据并计算平均数
-    '''
-
-    def __init__(self):
-        self.reset()
-
-    def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def update(self, val, batch_size=1):
-        self.val = val
-        self.sum += val * batch_size
-        self.count += batch_size
-        self.avg = self.sum / self.count
+def time_format(second):
+    m, s = divmod(second, 60)
+    m = round(m)
+    s = round(s)
+    if m < 60:
+        return "{}m{}s".format(m, s)
+    else:
+        h, m = divmod(m, 60)
+        h = round(h)
+        m = round(m)
+    if h < 24:
+        return "{}h{}m{}s".format(h, m, s)
+    else:
+        d, h = divmod(h, 24)
+        d = round(d)
+        h = round(h)
+    return "{}d{}h{}m{}s".format(d, h, m, s)
 
 
-def test_model(model, test_image_path, upscale_factor):
+def test_model(model, test_image_path, upscale_factor, save_name):
     '''
     测试模型效果
 
     :param model: 要测试的模型
-    :param test_image_path: 用于测试的图片的位置（尽量用绝对路径）
+    :param test_image_path: 用于测试的图片的位置
     :param upscale_factor: 放大倍数
     :return:
     '''
@@ -124,25 +121,22 @@ def test_model(model, test_image_path, upscale_factor):
     lr_image = origin_image.resize((image_width // upscale_factor, image_height // upscale_factor),
                                    resample=Image.BICUBIC)
     img_name, suffix = os.path.splitext(test_image_path)
-    print(img_name)
-    print(suffix)
+    # print(img_name)
+    # print(suffix)
     bicubic = lr_image.resize((image_width, image_height), resample=Image.BICUBIC)
-    psnr = calaculate_psnr(Variable(ToTensor()(origin_image)).to(device),
+    psnr = calaculate_psnr(Variable(ToTensor()(hr_image)).to(device),
                            Variable(ToTensor()(bicubic)).to(device))
 
     print('bicubic PSNR: {}'.format(psnr))
     bicubic.save(img_name + "_bicubic_x{}".format(upscale_factor) + suffix)
 
     x = Variable(ToTensor()(lr_image)).to(device).unsqueeze(0)
-    y = Variable(ToTensor()(origin_image)).to(device)
+    y = Variable(ToTensor()(hr_image)).to(device)
     with torch.no_grad():
         out = model(x).clip(0, 1).squeeze()
+        # out = model(x).squeeze()
     psnr = calaculate_psnr(y, out)
-    print('{} PSNR: {}'.format(model.__class__.__name__, psnr))
+    print('{} PSNR: {}'.format(save_name, psnr))
     out = tensor_to_image(out)
-    out.save(img_name + '_{}_x{}.'.format(model.__class__.__name__, upscale_factor) + suffix)
+    out.save(img_name + '_{}_x{}'.format(save_name, upscale_factor) + suffix)
     return
-
-
-
-

@@ -10,17 +10,21 @@ import os
 import torch
 import torch.backends.cudnn as cudnn
 import utils
-from PerceptualLoss import model
+from SubPixelConvolution import model
+# from ResizeConvolution import model
 
 if __name__ == '__main__':
     upscale_factor = 3
-    test_image_path = "img_test/test.jpg"
-    state_dict_path = "checkpoint/PerceptualLoss.pth"
+    test_image_path = "img_test/test.png"
+
     cudnn.benchmark = True
-    model = model.ESCPN_with_PL(upscale_factor)
+    state_dict_path = "checkpoint/SPCNet_without_PL_final_epoch.pth"
+    save_name = "SPCNet_without_PL"
+    model = model.SPCNet(upscale_factor)
     for name, parameters in torch.load(state_dict_path).items():
         if name in model.state_dict().keys():
             model.state_dict()[name].copy_(parameters)
         else:
             raise KeyError(name)
-    utils.test_model(model, test_image_path, upscale_factor)
+    # utils.test_model(model, "without_PL_final", test_image_path, upscale_factor)
+    utils.test_model(model, test_image_path, upscale_factor, save_name)
