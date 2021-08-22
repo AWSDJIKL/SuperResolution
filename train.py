@@ -17,8 +17,8 @@ from torch.optim.lr_scheduler import MultiStepLR
 
 import utils
 from PerceptualLoss import lossfunction
-from SubPixelConvolution import model
-# from ResizeConvolution import model
+# from SubPixelConvolution import model
+from ResizeConvolution import model
 from utils import calaculate_psnr  # noqa: E402
 import datasets
 
@@ -111,10 +111,13 @@ if __name__ == '__main__':
     parser.add_argument("--batch_size", default=1, type=int, help="batch_size")
     parser.add_argument("--num_workers", default=1, type=int, help="num_workers")
     parser.add_argument("--lr", default=1e-3, type=float, help="lr")
-    parser.add_argument("--epoch", default=100, type=int, help="epoch")
+    parser.add_argument("--epoch", default=200, type=int, help="epoch")
     # parser.add_argument("--experiment_name", default="SPC_with_PL", type=str, help="experiment name")
-    # parser.add_argument("--use_pl", default=True, type=bool, help="use Perceptual Loss")
-    parser.add_argument("--use_pl", default=False, type=bool, help="use Perceptual Loss")
+    parser.add_argument("--use_pl", default=True, type=bool, help="use Perceptual Loss")
+    # parser.add_argument("--use_pl", default=False, type=bool, help="use Perceptual Loss")
+    vgg16_layers = ["relu1_2", "relu2_2", "relu3_3", "relu4_3"]
+    parser.add_argument("--output_layer", default="relu4_3", type=str, choices=vgg16_layers,
+                        help="Perceptual Loss's output layer")
 
     start_time = time.time()
 
@@ -123,15 +126,15 @@ if __name__ == '__main__':
     train_loader, val_loader = datasets.get_super_resolution_dataloader(args)
     cudnn.benchmark = True
     # model = model.SPCNet(args.upscale_factor)
-    model = model.Residual_SPC(args.upscale_factor)
-    # model = model.ResizeConvolution(args.upscale_factor)
+    # model = model.Residual_SPC(args.upscale_factor)
+    model = model.ResizeConvolution(args.upscale_factor)
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     # 调整学习率，在第40，80个epoch时改变学习率
     scheduler = MultiStepLR(optimizer, milestones=[int(args.epoch * 0.4), int(args.epoch * 0.8)], gamma=10)
     if args.use_pl:
-        criterion = lossfunction.vgg16_loss()
-        experiment_name = model.__class__.__name__ + "_with_PL"
+        criterion = lossfunction.vgg16_loss(output_layer=args.output_layer)
+        experiment_name = model.__class__.__name__ + "_with_PL" + args.output_layer
     else:
         criterion = nn.MSELoss()
         experiment_name = model.__class__.__name__ + "_without_PL"
