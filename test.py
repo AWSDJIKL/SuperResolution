@@ -10,17 +10,18 @@ import os
 import torch
 import torch.backends.cudnn as cudnn
 import utils
-# from SubPixelConvolution import model
-from ResizeConvolution import model
+from SubPixelConvolution import model
+# from ResizeConvolution import model
 
 if __name__ == '__main__':
     upscale_factor = 3
     test_image_path = "img_test/test.png"
 
     cudnn.benchmark = True
-    state_dict_path = "checkpoint/ResizeConvolution_with_PL_final_epoch.pth"
-    save_name = "ResizeConvolution_with_PL_relu4_3"
-    model = model.ResizeConvolution(upscale_factor)
+    # state_dict_path = "checkpoint/Residual_SPC_with_PL_relu4_3_best.pth"
+    state_dict_path = "checkpoint/Residual_SPC_with_PL_relu4_3_final_epoch.pth"
+    save_name = "Residual_SPC_with_PL_wash_grad_relu4_3"
+    model = model.Residual_SPC(upscale_factor)
     for name, parameters in torch.load(state_dict_path).items():
         if name in model.state_dict().keys():
             model.state_dict()[name].copy_(parameters)

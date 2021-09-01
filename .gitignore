@@ -6,7 +6,6 @@ dataset/
 *.pth
 # C extensions
 *.so
-*.jpg
 # Distribution / packaging
 .Python
 build/

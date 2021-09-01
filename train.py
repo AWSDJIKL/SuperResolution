@@ -8,17 +8,19 @@
 import argparse
 import datetime
 import os
+import random
 import time
 import matplotlib.pyplot as plt
 import torch
+import torchvision
 from torch import nn
 from torch.backends import cudnn
 from torch.optim.lr_scheduler import MultiStepLR
-
+import numpy as np
 import utils
 from PerceptualLoss import lossfunction
-# from SubPixelConvolution import model
-from ResizeConvolution import model
+from SubPixelConvolution import model
+# from ResizeConvolution import model
 from utils import calaculate_psnr  # noqa: E402
 import datasets
 
@@ -54,6 +56,11 @@ def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch, 
             out = out.cpu()
             loss.cpu()
             torch.cuda.empty_cache()
+
+            # torchvision.transforms.ToPILImage()(y.squeeze(0)).save("wash_grad/y.jpg")
+            # torchvision.transforms.ToPILImage()(y.squeeze(0)).save("no_wash_grad/y.jpg")
+            # return
+
         epoch_loss /= count
         count = 0
         model.eval()
@@ -105,13 +112,21 @@ def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch, 
     plt.close()
 
 
+def setup_seed(seed):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.backends.cudnn.deterministic = True
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="感知损失模型")
     parser.add_argument("--upscale_factor", default=3, type=int, help="scale factor, Default: 3")
     parser.add_argument("--batch_size", default=1, type=int, help="batch_size")
     parser.add_argument("--num_workers", default=1, type=int, help="num_workers")
     parser.add_argument("--lr", default=1e-3, type=float, help="lr")
-    parser.add_argument("--epoch", default=200, type=int, help="epoch")
+    parser.add_argument("--epoch", default=100, type=int, help="epoch")
     # parser.add_argument("--experiment_name", default="SPC_with_PL", type=str, help="experiment name")
     parser.add_argument("--use_pl", default=True, type=bool, help="use Perceptual Loss")
     # parser.add_argument("--use_pl", default=False, type=bool, help="use Perceptual Loss")
@@ -120,21 +135,23 @@ if __name__ == '__main__':
                         help="Perceptual Loss's output layer")
 
     start_time = time.time()
-
+    # 固定随机种子
+    setup_seed(100)
     args = parser.parse_args()
     device = torch.device('cuda:0')
     train_loader, val_loader = datasets.get_super_resolution_dataloader(args)
     cudnn.benchmark = True
+    torch.backends.cudnn.deterministic = True
     # model = model.SPCNet(args.upscale_factor)
-    # model = model.Residual_SPC(args.upscale_factor)
-    model = model.ResizeConvolution(args.upscale_factor)
+    model = model.Residual_SPC(args.upscale_factor)
+    # model = model.ResizeConvolution(args.upscale_factor)
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     # 调整学习率，在第40，80个epoch时改变学习率
     scheduler = MultiStepLR(optimizer, milestones=[int(args.epoch * 0.4), int(args.epoch * 0.8)], gamma=10)
     if args.use_pl:
         criterion = lossfunction.vgg16_loss(output_layer=args.output_layer)
-        experiment_name = model.__class__.__name__ + "_with_PL" + args.output_layer
+        experiment_name = model.__class__.__name__ + "_with_PL_" + args.output_layer
     else:
         criterion = nn.MSELoss()
         experiment_name = model.__class__.__name__ + "_without_PL"
