@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 '''
-常规图片训练集训练
+使用h5训练集训练
 '''
-# @Time    : 2021/8/5 15:07
+# @Time    : 2021/9/15 0:24
 # @Author  : LINYANZHEN
-# @File    : train.py
+# @File    : train_use_h5dataset.py
 import argparse
 import datetime
 import os
@@ -26,7 +26,7 @@ import datasets
 import config
 
 
-def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch, experiment_name):
+def train_and_val(model, train_loaders, val_loaders, criterion, optimizer, epoch, experiment_name):
     if not os.path.exists("checkpoint"):
         os.mkdir("checkpoint")
     psnr_list = []
@@ -39,45 +39,41 @@ def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch, 
         epoch_start_time = time.time()
         print("epoch[{}/{}]".format(i, epoch))
         model.train()
-        for index, (x, y) in enumerate(train_loader, 0):
-            # if index == (len(train_loader) - 1) and i == (epoch - 1):
-            #     config.print_grad = True
-            x = x.to(device)
-            y = y.to(device)
-            out = model(x)
-            optimizer.zero_grad()
-            # print(x.size())
-            # print(out.size())
-            # print(y.size())
-            loss = criterion(out, y)
-            loss.backward()
-            epoch_loss += loss.item()
-            optimizer.step()
-            count += len(x)
-            x = x.cpu()
-            y = y.cpu()
-            out = out.cpu()
-            loss.cpu()
-            torch.cuda.empty_cache()
-            # if config.print_grad:
-            #     torchvision.transforms.ToPILImage()(y.squeeze(0)).save("wash_grad/y.jpg")
-            #     torchvision.transforms.ToPILImage()(y.squeeze(0)).save("no_wash_grad/y.jpg")
-            # return
+        for train_loader in train_loaders:
+            for index, (x, y) in enumerate(train_loader, 0):
+                x = x.to(device)
+                y = y.to(device)
+                out = model(x)
+                optimizer.zero_grad()
+                # print(x.size())
+                # print(out.size())
+                # print(y.size())
+                loss = criterion(out, y)
+                loss.backward()
+                epoch_loss += loss.item()
+                optimizer.step()
+                count += len(x)
+                x = x.cpu()
+                y = y.cpu()
+                out = out.cpu()
+                loss.cpu()
+                torch.cuda.empty_cache()
 
         epoch_loss /= count
         count = 0
         model.eval()
         with torch.no_grad():
-            for index, (x, y) in enumerate(val_loader, 0):
-                x = x.to(device)
-                y = y.to(device)
-                out = model(x)
-                epoch_psnr += calculate_psnr(y, out)
-                count += len(x)
-                x = x.cpu()
-                y = y.cpu()
-                out = out.cpu()
-                torch.cuda.empty_cache()
+            for val_loader in val_loaders:
+                for index, (x, y) in enumerate(val_loader, 0):
+                    x = x.to(device)
+                    y = y.to(device)
+                    out = model(x)
+                    epoch_psnr += calculate_psnr(y, out)
+                    count += len(x)
+                    x = x.cpu()
+                    y = y.cpu()
+                    out = out.cpu()
+                    torch.cuda.empty_cache()
         epoch_psnr /= count
 
         psnr_list.append(epoch_psnr)
@@ -126,13 +122,17 @@ def setup_seed(seed):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="感知损失模型")
     parser.add_argument("--upscale_factor", default=3, type=int, help="scale factor, Default: 3")
+    parser.add_argument("--train_dir", default="dataset/x3_train", type=str, help="train set directory")
+    parser.add_argument("--val_dir", default="dataset/x3_val", type=str, help="val set directory")
+    parser.add_argument("--batch_size", default=16, type=int, help="batch_size")
+    parser.add_argument("--num_workers", default=1, type=int, help="num_workers")
     parser.add_argument("--lr", default=1e-3, type=float, help="lr")
     parser.add_argument("--epoch", default=30, type=int, help="epoch")
     # parser.add_argument("--experiment_name", default="SPC_with_PL", type=str, help="experiment name")
     # parser.add_argument("--use_pl", default=True, type=bool, help="use Perceptual Loss")
     parser.add_argument("--use_pl", default=True, type=bool, help="use Perceptual Loss")
     vgg16_layers = ["relu1_2", "relu2_2", "relu3_3", "relu4_3"]
-    parser.add_argument("--output_layer", default="relu4_3", type=str, choices=vgg16_layers,
+    parser.add_argument("--output_layer", default="relu2_2", type=str, choices=vgg16_layers,
                         help="Perceptual Loss's output layer")
 
     start_time = time.time()
@@ -140,7 +140,7 @@ if __name__ == '__main__':
     setup_seed(100)
     args = parser.parse_args()
     device = torch.device('cuda:0')
-    train_loader, val_loader = datasets.get_super_resolution_dataloader(args)
+    train_loaders, val_loaders = datasets.get_h5py_dataloader(args)
 
     cudnn.benchmark = True
     torch.backends.cudnn.deterministic = True
@@ -153,12 +153,14 @@ if __name__ == '__main__':
     scheduler = MultiStepLR(optimizer, milestones=[int(args.epoch * 0.8)], gamma=0.1)
     if args.use_pl:
         criterion = lossfunction.vgg16_loss(output_layer=args.output_layer)
-        experiment_name = model.__class__.__name__ + "_with_PL_" + args.output_layer
+        experiment_name = model.__class__.__name__ + "_with_mix_PL_" + args.output_layer
+        # criterion = lossfunction.Residual_SPC_loss("checkpoint/Residual_SPC_without_PL_best.pth")
+        # experiment_name = model.__class__.__name__ + "_with_SCP_PL_"
     else:
         criterion = nn.MSELoss()
         experiment_name = model.__class__.__name__ + "_without_PL"
     # 训练模型
-    train_and_val(model, train_loader, val_loader, criterion, optimizer, args.epoch, experiment_name)
+    train_and_val(model, train_loaders, val_loaders, criterion, optimizer, args.epoch, experiment_name)
     # 保存模型
     print("训练完成")
     print("总耗时:" + utils.time_format(time.time() - start_time))

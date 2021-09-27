@@ -34,7 +34,7 @@ if __name__ == '__main__':
     hr_y = Variable(ToTensor()(hr_y)).to(device).unsqueeze(0)
     bicubic = lr_image.resize((image_width, image_height), resample=Image.BICUBIC)
 
-    psnr = utils.calaculate_psnr(hr_y, Variable(ToTensor()(bicubic)).to(device).unsqueeze(0))
+    psnr = utils.calculate_psnr(hr_y, Variable(ToTensor()(bicubic)).to(device).unsqueeze(0))
 
     print('bicubic PSNR: {}'.format(psnr))
     bicubic.save(test_image_path.replace(".", "_bicubic_x{}.".format(upscale_factor)))
@@ -43,7 +43,7 @@ if __name__ == '__main__':
         out = model(x).clip(0, 1).squeeze()
     print(hr_y.size())
     print(out.size())
-    psnr = utils.calaculate_psnr(hr_y, out)
+    psnr = utils.calculate_psnr(hr_y, out)
     print('espcn PSNR: {}'.format(psnr))
     out = utils.tensor_to_image(out)
     out_img = Image.merge('YCbCr', [out, hr_cb, hr_cr]).convert('RGB')

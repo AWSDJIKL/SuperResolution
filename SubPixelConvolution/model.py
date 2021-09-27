@@ -12,6 +12,7 @@ import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
 from torchvision import transforms
+import config
 
 
 class SPCNet(nn.Module):
@@ -81,18 +82,20 @@ class WashGrad(torch.autograd.Function):
         return i
 
     @staticmethod
-    def backward(ctx, grad_output):
+    def backward(ctx, grad):
         '''
 
         :param ctx:
         :param grad_output: 链式法则上一层的梯度
         :return:
         '''
-
-        # 用高斯滤波将梯度中的振铃效应洗掉
-        grad_input = gaussian_blur(grad_output, kernel_size=3)
+        if config.wash_grad:
+            # 用高斯滤波将梯度中的振铃效应洗掉
+            grad = gaussian_blur(grad, kernel_size=3)
+        # 归一化
+        grad = grad / (grad.max() - grad.min())
         # 该层梯度为1
-        return grad_input * 1
+        return grad * 1
 
 
 class PrintGrad(torch.autograd.Function):
@@ -121,19 +124,22 @@ class PrintGrad(torch.autograd.Function):
         :param grad_output: 链式法则上一层的梯度
         :return:
         '''
-        channel_count = 0
-        # 将梯度tensor转化为图像输出
-        grad = grad_output.squeeze(0)
-        print(grad.size())
-        # 分开每个通道都输出一张图片
-        for i in range(grad.size()[0]):
-            print(grad[i, :, :])
-            g = grad[i, :, :]
-            g = g / (g.max() - g.min())
-            img = transforms.ToPILImage()(g)
-            img.save("wash_grad/{}.jpg".format(channel_count))
-            # img.save("no_wash_grad/{}.jpg".format(channel_count))
-            channel_count += 1
+        if config.print_grad:
+            channel_count = 0
+            # 将梯度tensor转化为图像输出
+            grad = grad_output.squeeze(0)
+            # print(grad.size())
+            # 分开每个通道都输出一张图片
+            for i in range(grad.size()[0]):
+                # print(grad[i, :, :])
+                g = grad[i, :, :]
+                # g = g / (g.max() - g.min())
+                img = transforms.ToPILImage()(g)
+                if config.wash_grad:
+                    img.save("wash_grad/{}.jpg".format(channel_count))
+                else:
+                    img.save("no_wash_grad/{}.jpg".format(channel_count))
+                channel_count += 1
         # 该层梯度为1
         return grad_output * 1
 
@@ -192,7 +198,8 @@ class Residual_SPC(nn.Module):
         self.block4 = ResidualBlock(input_channels=64, output_channels=64)
         self.conv2 = nn.Conv2d(64, in_channels * (upscale_factor ** 2), (3, 3), (1, 1), (1, 1))
 
-        self.ConvTranspose = nn.ConvTranspose2d(in_channels=3, out_channels=3, kernel_size=(3, 3), stride=(3, 3))
+        self.ConvTranspose = nn.ConvTranspose2d(in_channels=in_channels, out_channels=in_channels, kernel_size=(3, 3),
+                                                stride=(3, 3))
         # 重新排列像素
         self.pixel_shuffle = nn.PixelShuffle(upscale_factor)
         self.relu = nn.ReLU(inplace=True)
@@ -208,7 +215,8 @@ class Residual_SPC(nn.Module):
         x = self.wash_grad.apply(x)
         x = self.relu(x)
 
-        # x = self.print_grad.apply(x)
+        # 打印梯度
+        x = self.print_grad.apply(x)
 
         x = self.block1(x)
         x = self.block2(x)

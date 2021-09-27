@@ -47,7 +47,7 @@ def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch):
             x = x.to(device)
             y = y.to(device)
             out = model(x)
-            epoch_psnr += utils.calaculate_psnr(y, out)
+            epoch_psnr += utils.calculate_psnr(y, out)
             count += len(x)
         epoch_psnr /= count
 
