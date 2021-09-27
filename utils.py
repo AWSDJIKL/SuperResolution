@@ -186,35 +186,40 @@ def test_model(model, test_image_path, upscale_factor, save_name):
     image_width = (origin_image.width // upscale_factor) * upscale_factor
     image_height = (origin_image.height // upscale_factor) * upscale_factor
 
-    # hr_image = origin_image.resize((image_width, image_height), resample=Image.BICUBIC)
-    # lr_image = origin_image.resize((image_width // upscale_factor, image_height // upscale_factor),resample=Image.BICUBIC)
-    lr_image = lr_transform((image_height, image_width), upscale_factor)(origin_image)
-    hr_image = hr_transform((image_height, image_width))(origin_image)
+    hr_image = origin_image.resize((image_width, image_height), resample=Image.BICUBIC)
+    lr_image = origin_image.resize((image_width // upscale_factor, image_height // upscale_factor),resample=Image.BICUBIC)
+    # lr_image = lr_transform((image_height, image_width), upscale_factor)(origin_image)
+    # hr_image = hr_transform((image_height, image_width))(origin_image)
 
-    # bicubic = lr_image.resize((image_width, image_height), resample=Image.BICUBIC)
-    # psnr = calculate_psnr(Variable(ToTensor()(hr_image)).to(device),
-    #                       Variable(ToTensor()(bicubic)).to(device))
-    # ssim = calculate_ssim(Variable(ToTensor()(hr_image)).to(device),
-    #                       Variable(ToTensor()(bicubic)).to(device))
-    # bicubic.save(img_name + "_bicubic_x{}".format(upscale_factor) + suffix)
-    bicubic = transforms.Resize((image_height, image_width))(lr_image)
-    psnr = calculate_psnr(hr_image.to(device), bicubic.to(device))
-    ssim = calculate_ssim(hr_image.to(device), bicubic.to(device))
-    transforms.ToPILImage()(bicubic).convert('RGB').save(img_name + "_bicubic_x{}".format(upscale_factor) + suffix)
+    bicubic = lr_image.resize((image_width, image_height), resample=Image.BICUBIC)
+    psnr = calculate_psnr(Variable(ToTensor()(hr_image)).to(device),
+                          Variable(ToTensor()(bicubic)).to(device))
+    bicubic.save(img_name + "_bicubic_x{}".format(upscale_factor) + suffix)
+    # bicubic = transforms.Resize((image_height, image_width))(lr_image)
+    # psnr = calculate_psnr(hr_image.to(device), bicubic.to(device))
+    # hr_y, _, _ = transforms.ToPILImage()(hr_image).convert('YCbCr').split()
+    # bicubic_y, _, _ = transforms.ToPILImage()(bicubic).convert('YCbCr').split()
+    hr_y, _, _ = hr_image.convert('YCbCr').split()
+    bicubic_y, _, _ = bicubic.convert('YCbCr').split()
+    ssim = calculate_ssim(Variable(ToTensor()(hr_y)).to(device),
+                          Variable(ToTensor()(bicubic_y)).to(device))
+    # transforms.ToPILImage()(bicubic).convert('RGB').save(img_name + "_bicubic_x{}".format(upscale_factor) + suffix)
 
     print('bicubic PSNR: {}'.format(psnr))
     print("bicubic SSIM: {}".format(ssim))
 
-    # x = Variable(ToTensor()(lr_image)).to(device).unsqueeze(0)  # 补上batch_size那一维
-    # y = Variable(ToTensor()(hr_image)).to(device)
-    x = lr_image.to(device).unsqueeze(0)  # 补上batch_size那一维
-    y = hr_image.to(device)
+    x = Variable(ToTensor()(lr_image)).to(device).unsqueeze(0)  # 补上batch_size那一维
+    y = Variable(ToTensor()(hr_image)).to(device)
+    # x = lr_image.to(device).unsqueeze(0)  # 补上batch_size那一维
+    # y = hr_image.to(device)
 
     with torch.no_grad():
         out = model(x).clip(0, 1).squeeze()
         # out = model(x).squeeze()
     psnr = calculate_psnr(y, out)
-    ssim = calculate_ssim(y, out)
+    out_y, _, _ = transforms.ToPILImage()(out).convert('YCbCr').split()
+    ssim = calculate_ssim(Variable(ToTensor()(hr_y)).to(device),
+                          Variable(ToTensor()(out_y)).to(device))
     print('{} PSNR: {}'.format(save_name, psnr))
     print('{} SSIM: {}'.format(save_name, ssim))
     out = tensor_to_image(out)

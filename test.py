@@ -17,8 +17,8 @@ from SubPixelConvolution import model
 if __name__ == '__main__':
     upscale_factor = 3
     # test_image_path = "img_test/test.png"
-    test_image_path = "img_test/baby/baby.png"
-    # test_image_path = "img_test/baboon/baboon.png"
+    # test_image_path = "img_test/baby/baby.png"
+    test_image_path = "img_test/baboon/baboon.png"
 
     cudnn.benchmark = True
     state_dict_path = "checkpoint/Residual_SPC_with_mix_PL_relu2_2_best.pth"
