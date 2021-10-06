@@ -187,7 +187,7 @@ def test_model(model, test_image_path, upscale_factor, save_name):
     image_height = (origin_image.height // upscale_factor) * upscale_factor
 
     hr_image = origin_image.resize((image_width, image_height), resample=Image.BICUBIC)
-    lr_image = origin_image.resize((image_width // upscale_factor, image_height // upscale_factor),resample=Image.BICUBIC)
+    lr_image = origin_image.resize((image_width // upscale_factor, image_height // upscale_factor), resample=Image.BICUBIC)
     # lr_image = lr_transform((image_height, image_width), upscale_factor)(origin_image)
     # hr_image = hr_transform((image_height, image_width))(origin_image)
 
