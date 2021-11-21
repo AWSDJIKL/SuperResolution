@@ -9,6 +9,7 @@ import argparse
 import datetime
 import os
 import random
+import shutil
 import time
 import matplotlib.pyplot as plt
 import torch
@@ -24,11 +25,18 @@ from SubPixelConvolution import model
 from utils import calculate_psnr  # noqa: E402
 import datasets
 import config
+from PIL import Image
 
 
 def train_and_val(model, train_loaders, val_loaders, criterion, optimizer, epoch, experiment_name):
     if not os.path.exists("checkpoint"):
         os.mkdir("checkpoint")
+    save_path = os.path.join("checkpoint", experiment_name)
+    if os.path.exists(save_path):
+        shutil.rmtree(save_path)
+    os.mkdir(save_path)
+    test_img_path = os.path.join(save_path, "test.png")
+    Image.open("img_test/test.png").save(test_img_path)
     psnr_list = []
     loss_list = []
     best_psnr = 0
@@ -75,9 +83,11 @@ def train_and_val(model, train_loaders, val_loaders, criterion, optimizer, epoch
                     out = out.cpu()
                     torch.cuda.empty_cache()
         epoch_psnr /= count
-
         psnr_list.append(epoch_psnr)
         loss_list.append(epoch_loss)
+
+        save_name = "{}".format(i)
+        utils.test_model(model, test_img_path, args.upscale_factor, save_name)
         if epoch_psnr > best_psnr:
             best_psnr = epoch_psnr
             # 保存psnr最优模型
@@ -100,14 +110,14 @@ def train_and_val(model, train_loaders, val_loaders, criterion, optimizer, epoch
     plt.legend()
     plt.grid()
     plt.title('best psnr=%5.2f' % best_psnr)
-    plt.savefig('psnr.jpg', dpi=256)
+    plt.savefig(os.path.join(save_path, 'psnr.jpg'), dpi=256)
     plt.close()
 
     plt.figure(figsize=(10, 5))
     plt.plot(loss_list, 'r', label='loss')
     plt.legend()
     plt.grid()
-    plt.savefig('loss.jpg', dpi=256)
+    plt.savefig(os.path.join(save_path, 'loss.jpg'), dpi=256)
     plt.close()
 
 
@@ -121,46 +131,43 @@ def setup_seed(seed):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="感知损失模型")
-    parser.add_argument("--upscale_factor", default=3, type=int, help="scale factor, Default: 3")
-    parser.add_argument("--train_dir", default="dataset/x3_train", type=str, help="train set directory")
-    parser.add_argument("--val_dir", default="dataset/x3_val", type=str, help="val set directory")
-    parser.add_argument("--batch_size", default=16, type=int, help="batch_size")
+    parser.add_argument("--upscale_factor", default=4, type=int, help="scale factor, Default: 3")
+    parser.add_argument("--train_dir", default="dataset/ms-coco-x4_train", type=str, help="train set directory")
+    parser.add_argument("--val_dir", default="dataset/ms-coco-x4_val", type=str, help="val set directory")
+    parser.add_argument("--batch_size", default=128, type=int, help="batch_size")
     parser.add_argument("--num_workers", default=1, type=int, help="num_workers")
     parser.add_argument("--lr", default=1e-3, type=float, help="lr")
-    parser.add_argument("--epoch", default=30, type=int, help="epoch")
-    # parser.add_argument("--experiment_name", default="SPC_with_PL", type=str, help="experiment name")
-    # parser.add_argument("--use_pl", default=True, type=bool, help="use Perceptual Loss")
+    parser.add_argument("--epoch", default=100, type=int, help="epoch")
     parser.add_argument("--use_pl", default=True, type=bool, help="use Perceptual Loss")
     vgg16_layers = ["relu1_2", "relu2_2", "relu3_3", "relu4_3"]
-    parser.add_argument("--output_layer", default="relu2_2", type=str, choices=vgg16_layers,
+    parser.add_argument("--output_layer", default="relu1_2", type=str, choices=vgg16_layers,
                         help="Perceptual Loss's output layer")
 
     start_time = time.time()
     # 固定随机种子
-    setup_seed(100)
+    # setup_seed(100)
     args = parser.parse_args()
     device = torch.device('cuda:0')
-    train_loaders, val_loaders = datasets.get_h5py_dataloader(args)
+    train_loader, val_loader = datasets.get_h5py_dataloader(args)
 
     cudnn.benchmark = True
     torch.backends.cudnn.deterministic = True
     # model = model.SPCNet(args.upscale_factor)
     model = model.Residual_SPC(args.upscale_factor)
-    # model = model.ResizeConvolution(args.upscale_factor)
+    # model = model.JohnsonSR(args.upscale_factor)
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     # 调整学习率，在第40，80个epoch时改变学习率
     scheduler = MultiStepLR(optimizer, milestones=[int(args.epoch * 0.8)], gamma=0.1)
     if args.use_pl:
         criterion = lossfunction.vgg16_loss(output_layer=args.output_layer)
-        experiment_name = model.__class__.__name__ + "_with_mix_PL_" + args.output_layer
-        # criterion = lossfunction.Residual_SPC_loss("checkpoint/Residual_SPC_without_PL_best.pth")
-        # experiment_name = model.__class__.__name__ + "_with_SCP_PL_"
+        # experiment_name = model.__class__.__name__ + "_with_mix_PL_" + args.output_layer + "_x" + str(args.upscale_factor)
+        experiment_name = model.__class__.__name__ + "_with_PL_" + args.output_layer + "_x" + str(args.upscale_factor)
     else:
         criterion = nn.MSELoss()
-        experiment_name = model.__class__.__name__ + "_without_PL"
+        experiment_name = model.__class__.__name__ + "_without_PL_x" + str(args.upscale_factor)
     # 训练模型
-    train_and_val(model, train_loaders, val_loaders, criterion, optimizer, args.epoch, experiment_name)
+    train_and_val(model, train_loader, val_loader, criterion, optimizer, args.epoch, experiment_name)
     # 保存模型
     print("训练完成")
     print("总耗时:" + utils.time_format(time.time() - start_time))

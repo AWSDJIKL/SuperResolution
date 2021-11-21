@@ -6,7 +6,7 @@
 # @Author  : LINYANZHEN
 # @File    : datasets.py
 import os
-
+from PIL import Image, ImageFilter
 import numpy as np
 from torch.utils.data import Dataset
 import h5py
@@ -68,6 +68,8 @@ class GeneralRGBDataset(Dataset):
 
     def __getitem__(self, index):
         img = self.loader(self.img_list[index])
+        # 添加高斯噪声
+        # gauss_img = img.filter(ImageFilter.GaussianBlur(radius=1))
         width = (img.width // self.upscale_factor) * self.upscale_factor
         height = (img.height // self.upscale_factor) * self.upscale_factor
         lr = lr_transform((height, width), self.upscale_factor)(img)
@@ -80,9 +82,11 @@ class GeneralRGBDataset(Dataset):
 
 def get_train_image_list():
     file_dirs = [
-        "dataset/BSD500/BSR/BSDS500/data/images",
+        # "dataset/BSD500/BSR/BSDS500/data/images",
+        # "dataset/ms-coco/test2014",
         # "dataset/DIV2K_train/DIV2K_train_HR",
         # "dataset/DIV2K_valid/DIV2K_valid_HR",
+        "dataset/ms-coco-subset",
     ]
     image_path_list = []
     for i in file_dirs:

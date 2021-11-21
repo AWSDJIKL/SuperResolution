@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 '''
-常规图片训练集训练
+训练
 '''
-# @Time    : 2021/8/5 15:07
+# @Time    : 2021/11/3 14:47
 # @Author  : LINYANZHEN
-# @File    : train.py
+# @File    : train_diffusionmodel.py
 import argparse
 import datetime
 from PIL import Image
@@ -14,18 +14,15 @@ import shutil
 import time
 import matplotlib.pyplot as plt
 import torch
-import torchvision
 from torch import nn
 from torch.backends import cudnn
-from torch.optim.lr_scheduler import MultiStepLR
 import numpy as np
 import utils
-from PerceptualLoss import lossfunction
-from SubPixelConvolution import model
-# from ResizeConvolution import model
 from utils import calculate_psnr  # noqa: E402
 import datasets
 import config
+
+from DiffusionModel import model
 
 
 def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch, experiment_name):
@@ -138,12 +135,6 @@ if __name__ == '__main__':
     parser.add_argument("--upscale_factor", default=4, type=int, help="scale factor, Default: 3")
     parser.add_argument("--lr", default=1e-3, type=float, help="lr")
     parser.add_argument("--epoch", default=100, type=int, help="epoch")
-    # parser.add_argument("--experiment_name", default="SPC_with_PL", type=str, help="experiment name")
-    # parser.add_argument("--use_pl", default=True, type=bool, help="use Perceptual Loss")
-    parser.add_argument("--use_pl", default=True, type=bool, help="use Perceptual Loss")
-    vgg16_layers = ["relu1_2", "relu2_2", "relu3_3", "relu4_3"]
-    parser.add_argument("--output_layer", default="relu2_2", type=str, choices=vgg16_layers,
-                        help="Perceptual Loss's output layer")
 
     start_time = time.time()
     # 固定随机种子
@@ -155,20 +146,13 @@ if __name__ == '__main__':
 
     cudnn.benchmark = True
     torch.backends.cudnn.deterministic = True
-    # model = model.SPCNet(args.upscale_factor)
-    model = model.Residual_SPC(args.upscale_factor)
-    # model = model.JohnsonSR(args.upscale_factor)
+    model = model.DenoiseModel()
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     # 调整学习率，在第40，80个epoch时改变学习率
-    scheduler = MultiStepLR(optimizer, milestones=[int(args.epoch * 0.8)], gamma=0.1)
-    if args.use_pl:
-        criterion = lossfunction.vgg16_loss(output_layer=args.output_layer)
-        # experiment_name = model.__class__.__name__ + "_with_mix_PL_" + args.output_layer + "_x" + str(args.upscale_factor)
-        experiment_name = model.__class__.__name__ + "_with_PL_" + args.output_layer + "_x" + str(args.upscale_factor)
-    else:
-        criterion = nn.MSELoss()
-        experiment_name = model.__class__.__name__ + "_without_PL_x" + str(args.upscale_factor)
+    # scheduler = MultiStepLR(optimizer, milestones=[int(args.epoch * 0.8)], gamma=0.1)
+    criterion = nn.MSELoss()
+    experiment_name = model.__class__.__name__ + "_without_PL_x" + str(args.upscale_factor)
     # 训练模型
     train_and_val(model, train_loader, val_loader, criterion, optimizer, args.epoch, experiment_name)
     # 保存模型

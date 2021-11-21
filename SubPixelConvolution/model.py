@@ -29,11 +29,15 @@ class SPCNet(nn.Module):
         # 重新排列像素
         self.pixel_shuffle = nn.PixelShuffle(upscale_factor)
         self.relu = nn.ReLU()
+        self.tanh = nn.Tanh()
 
     def forward(self, x):
         x = self.relu(self.conv1(x))
         x = self.relu(self.conv2(x))
         x = self.pixel_shuffle(self.conv3(x))
+        x = self.tanh(x)
+        x = torch.add(x, 1.)
+        x = torch.mul(x, 0.5)
         return x
 
 
@@ -144,6 +148,27 @@ class PrintGrad(torch.autograd.Function):
         return grad_output * 1
 
 
+class NoiseGenerator(nn.Module):
+    def __init__(self):
+        '''
+        生成噪音
+
+        '''
+        super(NoiseGenerator, self).__init__()
+        self.conv1 = nn.Conv2d(3, 64, (3, 3), (1, 1), (1, 1))
+        self.conv2 = nn.Conv2d(64, 64, (3, 3), (1, 1), (1, 1))
+        self.conv3 = nn.Conv2d(64, 3, (3, 3), (1, 1), (1, 1))
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.relu(x)
+        x = self.conv2(x)
+        x = self.relu(x)
+        x = self.conv3(x)
+        return x
+
+
 class ResidualBlock(nn.Module):
     def __init__(self, input_channels, output_channels):
         '''
@@ -159,26 +184,20 @@ class ResidualBlock(nn.Module):
         self.conv2 = nn.Conv2d(output_channels, output_channels, (3, 3), (1, 1), (1, 1))
         self.bn2 = nn.BatchNorm2d(output_channels)
         self.conv1x1 = nn.Conv2d(input_channels, output_channels, (1, 1))
-        self.relu = nn.ReLU(inplace=True)
-        self.wash_grad = WashGrad
+        self.relu = nn.ReLU(inplace=False)
 
     def forward(self, x):
         identity = x
-        identity = self.wash_grad.apply(identity)
 
-        output = self.wash_grad.apply(x)
         output = self.conv1(x)
         output = self.bn1(output)
         output = self.relu(output)
-        output = self.wash_grad.apply(x)
-
-        output = self.wash_grad.apply(output)
         output = self.conv2(output)
         output = self.bn2(output)
         output = self.relu(output)
-        output = self.wash_grad.apply(x)
 
-        output += self.conv1x1(identity)
+        identity = self.conv1x1(identity)
+        output = output + identity
         output = self.relu(output)
         return output
 
@@ -198,35 +217,95 @@ class Residual_SPC(nn.Module):
         self.block4 = ResidualBlock(input_channels=64, output_channels=64)
         self.conv2 = nn.Conv2d(64, in_channels * (upscale_factor ** 2), (3, 3), (1, 1), (1, 1))
 
-        self.ConvTranspose = nn.ConvTranspose2d(in_channels=in_channels, out_channels=in_channels, kernel_size=(3, 3),
-                                                stride=(3, 3))
+        self.ConvTranspose = nn.ConvTranspose2d(in_channels=in_channels, out_channels=in_channels,
+                                                kernel_size=(upscale_factor, upscale_factor),
+                                                stride=(upscale_factor, upscale_factor))
         # 重新排列像素
         self.pixel_shuffle = nn.PixelShuffle(upscale_factor)
-        self.relu = nn.ReLU(inplace=True)
-        self.wash_grad = WashGrad
-        self.print_grad = PrintGrad
+        self.relu = nn.ReLU(inplace=False)
+        self.noise_generator = NoiseGenerator()
 
     def forward(self, x):
-        i = self.ConvTranspose(x)
-        i = self.wash_grad.apply(i)
+        identity = x
 
-        x = self.wash_grad.apply(x)
         x = self.conv1(x)
-        x = self.wash_grad.apply(x)
         x = self.relu(x)
-
-        # 打印梯度
-        x = self.print_grad.apply(x)
 
         x = self.block1(x)
         x = self.block2(x)
         x = self.block3(x)
         x = self.block4(x)
 
-        x = self.wash_grad.apply(x)
         x = self.conv2(x)
-        x = self.wash_grad.apply(x)
         x = self.pixel_shuffle(x)
 
-        output = x + i
+        identity = self.ConvTranspose(identity)
+        output = x + identity
+
+        noise = torch.ones(output.size()).cuda()
+        noise = self.noise_generator(noise)
+        output = output - noise
+
         return output
+
+
+class ResBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, padding=0):
+        super(ResBlock, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=padding)
+        self.conv2 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=padding)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        x_in = x
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.conv2(x)
+        x = self.bn2(x)
+        return x + x_in
+
+
+class UpBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, scale_factor, kernel_size, padding=0):
+        super(UpBlock, self).__init__()
+        self.upsample = nn.Upsample(scale_factor=scale_factor)
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, padding=padding)
+        self.bn = nn.BatchNorm2d(out_channels)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        x = self.upsample(x)
+        x = self.conv(x)
+        x = self.bn(x)
+        return self.relu(x)
+
+
+class JohnsonSR(nn.Module):
+    def __init__(self, upscale_factor):
+        super(JohnsonSR, self).__init__()
+        self.batch_norm = nn.BatchNorm2d(3)
+        self.conv_in = nn.Conv2d(3, 64, kernel_size=9, padding=4)
+        self.resblock1 = ResBlock(64, 64, padding=1)
+        self.resblock2 = ResBlock(64, 64, padding=1)
+        self.resblock3 = ResBlock(64, 64, padding=1)
+        self.resblock4 = ResBlock(64, 64, padding=1)
+        self.upblock1 = UpBlock(64, 64, scale_factor=2, kernel_size=3, padding=1)
+        self.upblock2 = UpBlock(64, 64, scale_factor=2, kernel_size=3, padding=1)
+        self.conv_out = nn.Conv2d(64, 3, kernel_size=9, padding=4)
+        self.tanh = nn.Tanh()
+
+    def forward(self, x):
+        # x = self.batch_norm(x)
+        x = self.conv_in(x)
+        x = self.resblock1(x)
+        x = self.resblock2(x)
+        x = self.resblock3(x)
+        x = self.resblock4(x)
+        x = self.upblock1(x)
+        x = self.upblock2(x)
+        x = self.conv_out(x)
+        # x=self.tanh(x)
+        return x

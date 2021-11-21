@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 dataset/
 *.pth
+checkpoint/
 # C extensions
 *.so
 # Distribution / packaging
