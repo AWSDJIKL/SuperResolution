@@ -26,6 +26,9 @@ link_list = {
     "BSD500": "http://www.eecs.berkeley.edu/Research/Projects/CS/vision/grouping/BSR/BSR_bsds500.tgz",
     "DIV2K_train": "http://data.vision.ee.ethz.ch/cvl/DIV2K/DIV2K_train_HR.zip",
     "DIV2K_valid": "http://data.vision.ee.ethz.ch/cvl/DIV2K/DIV2K_valid_HR.zip",
+    "ms_coco_train": "http://images.cocodataset.org/zips/train2014.zip",
+    "ms_coco_val": "http://images.cocodataset.org/zips/val2014.zip",
+    "ms_coco_test": "http://images.cocodataset.org/zips/test2014.zip",
 }
 
 
@@ -117,8 +120,8 @@ def prepare_train_h5py(image_path_list, upscale_factor, output_dir, crop_image=F
             for i in range(0, lr.shape[1] - patch_size + 1, stride):
                 # w
                 for j in range(0, lr.shape[2] - patch_size + 1, stride):
-                    lr_list.append(lr[:,i:i + patch_size, j:j + patch_size])
-                    hr_list.append(hr[:,i * upscale_factor:i * upscale_factor + patch_size * upscale_factor,
+                    lr_list.append(lr[:, i:i + patch_size, j:j + patch_size])
+                    hr_list.append(hr[:, i * upscale_factor:i * upscale_factor + patch_size * upscale_factor,
                                    j * upscale_factor:j * upscale_factor + patch_size * upscale_factor])
         else:
             lr_list.append(lr)
@@ -202,8 +205,8 @@ if __name__ == '__main__':
     val_image_list = datasets.get_val_image_list()
     print("训练集共{}张图片".format(len(train_image_list)))
     print("测试集共{}张图片".format(len(val_image_list)))
-    train_set_output_dir = "dataset/ms-coco-x4_train"
-    val_set_output_dir = "dataset/ms-coco-x4_val"
+    train_set_output_dir = "dataset/x4_train"
+    val_set_output_dir = "dataset/x4_val"
     prepare_train_h5py(train_image_list, 4, train_set_output_dir, crop_image=True)
     prepare_val_h5py(val_image_list, 4, val_set_output_dir)
     print("数据集集合完毕")
