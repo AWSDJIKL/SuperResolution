@@ -86,7 +86,6 @@ def get_train_image_list():
         # "dataset/ms-coco/test2014",
         # "dataset/DIV2K_train/DIV2K_train_HR",
         # "dataset/DIV2K_valid/DIV2K_valid_HR",
-        # "dataset/ms-coco-subset",
     ]
     image_path_list = []
     for i in file_dirs:

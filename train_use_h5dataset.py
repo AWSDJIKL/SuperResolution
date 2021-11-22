@@ -132,15 +132,15 @@ def setup_seed(seed):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="感知损失模型")
     parser.add_argument("--upscale_factor", default=4, type=int, help="scale factor, Default: 3")
-    parser.add_argument("--train_dir", default="dataset/ms-coco-x4_train", type=str, help="train set directory")
-    parser.add_argument("--val_dir", default="dataset/ms-coco-x4_val", type=str, help="val set directory")
+    parser.add_argument("--train_dir", default="dataset/x4_train", type=str, help="train set directory")
+    parser.add_argument("--val_dir", default="dataset/x4_val", type=str, help="val set directory")
     parser.add_argument("--batch_size", default=128, type=int, help="batch_size")
     parser.add_argument("--num_workers", default=1, type=int, help="num_workers")
     parser.add_argument("--lr", default=1e-3, type=float, help="lr")
     parser.add_argument("--epoch", default=100, type=int, help="epoch")
     parser.add_argument("--use_pl", default=True, type=bool, help="use Perceptual Loss")
     vgg16_layers = ["relu1_2", "relu2_2", "relu3_3", "relu4_3"]
-    parser.add_argument("--output_layer", default="relu1_2", type=str, choices=vgg16_layers,
+    parser.add_argument("--output_layer", default="relu2_2", type=str, choices=vgg16_layers,
                         help="Perceptual Loss's output layer")
 
     start_time = time.time()
@@ -162,7 +162,7 @@ if __name__ == '__main__':
     if args.use_pl:
         criterion = lossfunction.vgg16_loss(output_layer=args.output_layer)
         # experiment_name = model.__class__.__name__ + "_with_mix_PL_" + args.output_layer + "_x" + str(args.upscale_factor)
-        experiment_name = model.__class__.__name__ + "_with_PL_" + args.output_layer + "_x" + str(args.upscale_factor)
+        experiment_name = model.__class__.__name__ + "_with_PL_use_maxpool_" + args.output_layer + "_x" + str(args.upscale_factor)
     else:
         criterion = nn.MSELoss()
         experiment_name = model.__class__.__name__ + "_without_PL_x" + str(args.upscale_factor)

@@ -70,13 +70,21 @@ class vgg16_loss(nn.Module):
         '''
         # 定义必要的超参数
         super(vgg16_loss, self).__init__()
-        self.PerceptualModel = PerceptualVGG16(output_layer).cuda()
-        self.PerceptualModel.eval()
-
-        # self.PerceptualModel = Vgg16().cuda()
+        # self.PerceptualModel = PerceptualVGG16(output_layer).cuda()
         # self.PerceptualModel.eval()
-        for param in self.PerceptualModel.parameters():
-            param.requires_grad = False
+        #
+        # # self.PerceptualModel = Vgg16().cuda()
+        # # self.PerceptualModel.eval()
+        # for param in self.PerceptualModel.parameters():
+        #     param.requires_grad = False
+        features = models.vgg16(pretrained=True).features
+        print(features)
+        self.PerceptualModel = nn.Sequential()
+        for i in range(9):
+            if i in (4, 9, 16, 23, 30):
+                continue
+            self.PerceptualModel.add_module(str(i), features[i])
+        self.PerceptualModel.cuda()
 
     def forward(self, pred, y):
         # pred = transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))(pred)
