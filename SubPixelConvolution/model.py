@@ -271,7 +271,9 @@ class ResBlock(nn.Module):
 class UpBlock(nn.Module):
     def __init__(self, in_channels, out_channels, scale_factor, kernel_size, padding=0):
         super(UpBlock, self).__init__()
-        self.upsample = nn.Upsample(scale_factor=scale_factor)
+        # self.upsample = nn.Upsample(scale_factor=scale_factor)
+        self.upsample = nn.ConvTranspose2d(in_channels, out_channels, kernel_size=(scale_factor, scale_factor),
+                                           stride=(scale_factor, scale_factor))
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, padding=padding)
         self.bn = nn.BatchNorm2d(out_channels)
         self.relu = nn.ReLU()
@@ -295,7 +297,6 @@ class JohnsonSR(nn.Module):
         self.upblock1 = UpBlock(64, 64, scale_factor=2, kernel_size=3, padding=1)
         self.upblock2 = UpBlock(64, 64, scale_factor=2, kernel_size=3, padding=1)
         self.conv_out = nn.Conv2d(64, 3, kernel_size=9, padding=4)
-        self.tanh = nn.Tanh()
 
     def forward(self, x):
         # x = self.batch_norm(x)
@@ -307,5 +308,66 @@ class JohnsonSR(nn.Module):
         x = self.upblock1(x)
         x = self.upblock2(x)
         x = self.conv_out(x)
-        # x=self.tanh(x)
+        return x
+
+
+class SimpleSR_ConvTranspose(nn.Module):
+    def __init__(self):
+        super(SimpleSR_ConvTranspose, self).__init__()
+        self.conv1 = nn.Conv2d(3, 64, (3, 3), (1, 1), (1, 1))
+        self.conv2 = nn.Conv2d(64, 64, (3, 3), (1, 1), (1, 1))
+        self.conv3 = nn.Conv2d(64, 3, (3, 3), (1, 1), (1, 1))
+        self.upsample = nn.ConvTranspose2d(3, 3, (4, 4), (4, 4))
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        x = self.upsample(x)
+        x = self.conv1(x)
+        x = self.relu(x)
+        x = self.conv2(x)
+        x = self.relu(x)
+        x = self.conv3(x)
+        x = self.relu(x)
+
+        return x
+
+
+class SimpleSR_PixelShuffle(nn.Module):
+    def __init__(self):
+        super(SimpleSR_PixelShuffle, self).__init__()
+        self.conv1 = nn.Conv2d(3, 64, (3, 3), (1, 1), (1, 1))
+        self.conv2 = nn.Conv2d(64, 64, (3, 3), (1, 1), (1, 1))
+        self.conv3 = nn.Conv2d(64, 3 * 4 * 4, (3, 3), (1, 1), (1, 1))
+        self.upsample = nn.PixelShuffle(upscale_factor=4)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.relu(x)
+        x = self.conv2(x)
+        x = self.relu(x)
+        x = self.conv3(x)
+        x = self.relu(x)
+        x = self.upsample(x)
+        return x
+
+
+class SimpleSR_Upsample(nn.Module):
+    def __init__(self):
+        super(SimpleSR_Upsample, self).__init__()
+        self.conv1 = nn.Conv2d(3, 64, (3, 3), (1, 1), (1, 1))
+        self.conv2 = nn.Conv2d(64, 64, (3, 3), (1, 1), (1, 1))
+        self.conv3 = nn.Conv2d(64, 3, (3, 3), (1, 1), (1, 1))
+        self.upsample = nn.Upsample(scale_factor=4)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        x = self.upsample(x)
+        x = self.conv1(x)
+        x = self.relu(x)
+        x = self.conv2(x)
+        x = self.relu(x)
+        x = self.conv3(x)
+        x = self.relu(x)
+
         return x

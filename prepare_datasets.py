@@ -24,11 +24,11 @@ link_list = {
     "set14": "https://uofi.box.com/shared/static/igsnfieh4lz68l926l8xbklwsnnk8we9.zip",
     "Urban100": "https://uofi.box.com/shared/static/65upg43jjd0a4cwsiqgl6o6ixube6klm.zip",
     "BSD500": "http://www.eecs.berkeley.edu/Research/Projects/CS/vision/grouping/BSR/BSR_bsds500.tgz",
-    "DIV2K_train": "http://data.vision.ee.ethz.ch/cvl/DIV2K/DIV2K_train_HR.zip",
-    "DIV2K_valid": "http://data.vision.ee.ethz.ch/cvl/DIV2K/DIV2K_valid_HR.zip",
-    "ms_coco_train": "http://images.cocodataset.org/zips/train2014.zip",
-    "ms_coco_val": "http://images.cocodataset.org/zips/val2014.zip",
-    "ms_coco_test": "http://images.cocodataset.org/zips/test2014.zip",
+    # "DIV2K_train": "http://data.vision.ee.ethz.ch/cvl/DIV2K/DIV2K_train_HR.zip",
+    # "DIV2K_valid": "http://data.vision.ee.ethz.ch/cvl/DIV2K/DIV2K_valid_HR.zip",
+    # "ms_coco_train": "http://images.cocodataset.org/zips/train2014.zip",
+    # "ms_coco_val": "http://images.cocodataset.org/zips/val2014.zip",
+    # "ms_coco_test": "http://images.cocodataset.org/zips/test2014.zip",
 }
 
 

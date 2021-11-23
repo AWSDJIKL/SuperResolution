@@ -75,16 +75,19 @@ class vgg16_loss(nn.Module):
         #
         # # self.PerceptualModel = Vgg16().cuda()
         # # self.PerceptualModel.eval()
-        # for param in self.PerceptualModel.parameters():
-        #     param.requires_grad = False
+
         features = models.vgg16(pretrained=True).features
         print(features)
         self.PerceptualModel = nn.Sequential()
         for i in range(9):
-            if i in (4, 9, 16, 23, 30):
-                continue
+            # if i in (1, 3, 6, 8):
+            #     continue
+            # if i in (4, 9, 16, 23, 30):
+            #     continue
             self.PerceptualModel.add_module(str(i), features[i])
+        self.PerceptualModel.eval()
         self.PerceptualModel.cuda()
+        self.PerceptualModel = self.PerceptualModel.requires_grad_(False)
 
     def forward(self, pred, y):
         # pred = transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))(pred)
@@ -94,17 +97,17 @@ class vgg16_loss(nn.Module):
         Perceptual_pred = self.PerceptualModel(pred)
         Perceptual_y = self.PerceptualModel(y)
 
-        (batch_size, c, h, w) = y.size()
+        (batch_size, c, h, w) = Perceptual_y.size()
         # perceptual_loss = (torch.sum((Perceptual_pred - Perceptual_y) ** 2) ** 0.5) / (batch_size * c * h * w)
         perceptual_loss = torch.nn.MSELoss()(Perceptual_pred, Perceptual_y) / (batch_size * c * h * w)
         # perceptual_loss = 0
         # for i in range(4):
         #     (batch_size, c, h, w) = Perceptual_pred[i].size()
         #     perceptual_loss += torch.nn.MSELoss()(Perceptual_pred[i], Perceptual_y[i]) / (batch_size * c * h * w)
-        # mse_loss = (torch.sum((pred - y) ** 2) ** 0.5)
+        mse_loss = (torch.sum((pred - y) ** 2) ** 0.5)
         # mse_loss = torch.nn.MSELoss()(pred, y)
-        # loss = mse_loss + perceptual_loss
-        loss = perceptual_loss
+        loss = mse_loss + perceptual_loss
+        # loss = perceptual_loss
         pred.cpu()
         y.cpu()
         torch.cuda.empty_cache()

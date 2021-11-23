@@ -140,7 +140,7 @@ if __name__ == '__main__':
     parser.add_argument("--epoch", default=100, type=int, help="epoch")
     # parser.add_argument("--experiment_name", default="SPC_with_PL", type=str, help="experiment name")
     # parser.add_argument("--use_pl", default=True, type=bool, help="use Perceptual Loss")
-    parser.add_argument("--use_pl", default=True, type=bool, help="use Perceptual Loss")
+    parser.add_argument("--use_pl", default=True, type=lambda x: x.lower() == 'true', help="use Perceptual Loss")
     vgg16_layers = ["relu1_2", "relu2_2", "relu3_3", "relu4_3"]
     parser.add_argument("--output_layer", default="relu2_2", type=str, choices=vgg16_layers,
                         help="Perceptual Loss's output layer")
