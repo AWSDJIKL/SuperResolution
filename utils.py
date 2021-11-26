@@ -172,6 +172,11 @@ def tensor_to_image(tensor):
     # sigma = torch.Tensor((0.229, 0.224, 0.225)).view(-1, 1, 1).cuda()
     # img = transforms.ToPILImage()((tensor * sigma + mu).clamp(0, 1))
     img = transforms.ToPILImage()((tensor).clamp(0, 1))
+    # img = tensor.cpu().numpy()
+    # img = np.swapaxes(img, 0, 2)
+    # img = np.swapaxes(img, 0, 1)
+    # img = np.array(img * 255, dtype=np.uint8)
+    # img = Image.fromarray(img, "RGB")
     return img
 
 

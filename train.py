@@ -26,6 +26,7 @@ from SubPixelConvolution import model
 from utils import calculate_psnr  # noqa: E402
 import datasets
 import config
+import tqdm
 
 
 def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch, experiment_name):
@@ -47,7 +48,8 @@ def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch, 
         epoch_start_time = time.time()
         print("epoch[{}/{}]".format(i, epoch))
         model.train()
-        for index, (x, y) in enumerate(train_loader, 0):
+        progress = tqdm.tqdm(train_loader, total=len(train_loader))
+        for (x, y) in progress:
             # if index == (len(train_loader) - 1) and i == (epoch - 1):
             #     config.print_grad = True
             x = x.to(device)
@@ -76,7 +78,8 @@ def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch, 
         count = 0
         model.eval()
         with torch.no_grad():
-            for index, (x, y) in enumerate(val_loader, 0):
+            progress = tqdm.tqdm(val_loader, total=len(train_loader))
+            for (x, y) in progress:
                 x = x.to(device)
                 y = y.to(device)
                 out = model(x)
@@ -137,13 +140,17 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="感知损失模型")
     parser.add_argument("--upscale_factor", default=4, type=int, help="scale factor, Default: 3")
     parser.add_argument("--lr", default=1e-3, type=float, help="lr")
-    parser.add_argument("--epoch", default=100, type=int, help="epoch")
+    parser.add_argument("--epoch", default=30, type=int, help="epoch")
     # parser.add_argument("--experiment_name", default="SPC_with_PL", type=str, help="experiment name")
     # parser.add_argument("--use_pl", default=True, type=bool, help="use Perceptual Loss")
-    parser.add_argument("--use_pl", default=True, type=lambda x: x.lower() == 'true', help="use Perceptual Loss")
+    parser.add_argument("--use_pl", default=False, type=lambda x: x.lower() == 'true', help="use Perceptual Loss")
     vgg16_layers = ["relu1_2", "relu2_2", "relu3_3", "relu4_3"]
     parser.add_argument("--output_layer", default="relu2_2", type=str, choices=vgg16_layers,
                         help="Perceptual Loss's output layer")
+    parser.add_argument("--use_pretrain", default=False, type=lambda x: x.lower() == 'true', help="use Pretrain model")
+    parser.add_argument("--model_path",
+                        default="checkpoint/SPCNet_without_PL_x4/SPCNet_without_PL_x4_final_epoch.pth",
+                        type=str, help="pretrain model path")
 
     start_time = time.time()
     # 固定随机种子
@@ -155,15 +162,21 @@ if __name__ == '__main__':
 
     cudnn.benchmark = True
     torch.backends.cudnn.deterministic = True
-    # model = model.SPCNet(args.upscale_factor)
-    model = model.Residual_SPC(args.upscale_factor)
+    model = model.SPCNet(args.upscale_factor)
+    # model = model.Residual_SPC(args.upscale_factor)
     # model = model.JohnsonSR(args.upscale_factor)
     model = model.to(device)
+
+    if args.use_pretrain:
+        print("加载预训练模型（在此基础上继续训练）")
+        model.load_state_dict(torch.load(args.model_path))
+
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     # 调整学习率，在第40，80个epoch时改变学习率
     scheduler = MultiStepLR(optimizer, milestones=[int(args.epoch * 0.8)], gamma=0.1)
     if args.use_pl:
-        criterion = lossfunction.vgg16_loss(output_layer=args.output_layer)
+        # criterion = lossfunction.vgg16_loss(output_layer=args.output_layer)
+        criterion = lossfunction.resnet_loss()
         # experiment_name = model.__class__.__name__ + "_with_mix_PL_" + args.output_layer + "_x" + str(args.upscale_factor)
         experiment_name = model.__class__.__name__ + "_with_PL_" + args.output_layer + "_x" + str(args.upscale_factor)
     else:
@@ -171,6 +184,7 @@ if __name__ == '__main__':
         experiment_name = model.__class__.__name__ + "_without_PL_x" + str(args.upscale_factor)
     # 训练模型
     train_and_val(model, train_loader, val_loader, criterion, optimizer, args.epoch, experiment_name)
+
     # 保存模型
     print("训练完成")
     print("总耗时:" + utils.time_format(time.time() - start_time))

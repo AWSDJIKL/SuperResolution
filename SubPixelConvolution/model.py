@@ -194,11 +194,11 @@ class ResidualBlock(nn.Module):
         output = self.relu(output)
         output = self.conv2(output)
         output = self.bn2(output)
-        output = self.relu(output)
+        # output = self.relu(output)
 
         identity = self.conv1x1(identity)
         output = output + identity
-        output = self.relu(output)
+        # output = self.relu(output)
         return output
 
 
@@ -220,10 +220,10 @@ class Residual_SPC(nn.Module):
         self.ConvTranspose = nn.ConvTranspose2d(in_channels=in_channels, out_channels=in_channels,
                                                 kernel_size=(upscale_factor, upscale_factor),
                                                 stride=(upscale_factor, upscale_factor))
+        self.conv1x1 = nn.Conv2d(in_channels, in_channels, (1, 1), (1, 1))
         # 重新排列像素
         self.pixel_shuffle = nn.PixelShuffle(upscale_factor)
         self.relu = nn.ReLU(inplace=False)
-        self.noise_generator = NoiseGenerator()
 
     def forward(self, x):
         identity = x
@@ -240,11 +240,8 @@ class Residual_SPC(nn.Module):
         x = self.pixel_shuffle(x)
 
         identity = self.ConvTranspose(identity)
+        identity = self.conv1x1(identity)
         output = x + identity
-
-        noise = torch.ones(output.size()).cuda()
-        noise = self.noise_generator(noise)
-        output = output - noise
 
         return output
 
@@ -314,9 +311,9 @@ class JohnsonSR(nn.Module):
 class SimpleSR_ConvTranspose(nn.Module):
     def __init__(self):
         super(SimpleSR_ConvTranspose, self).__init__()
-        self.conv1 = nn.Conv2d(3, 64, (3, 3), (1, 1), (1, 1))
-        self.conv2 = nn.Conv2d(64, 64, (3, 3), (1, 1), (1, 1))
-        self.conv3 = nn.Conv2d(64, 3, (3, 3), (1, 1), (1, 1))
+        self.conv1 = nn.Conv2d(3, 64, (3, 3), (1, 1), (3, 3), dilation=(3, 3))
+        self.conv2 = nn.Conv2d(64, 64, (3, 3), (1, 1), (3, 3), dilation=(3, 3))
+        self.conv3 = nn.Conv2d(64, 3, (3, 3), (1, 1), (3, 3), dilation=(3, 3))
         self.upsample = nn.ConvTranspose2d(3, 3, (4, 4), (4, 4))
         self.relu = nn.ReLU()
 
@@ -335,9 +332,9 @@ class SimpleSR_ConvTranspose(nn.Module):
 class SimpleSR_PixelShuffle(nn.Module):
     def __init__(self):
         super(SimpleSR_PixelShuffle, self).__init__()
-        self.conv1 = nn.Conv2d(3, 64, (3, 3), (1, 1), (1, 1))
-        self.conv2 = nn.Conv2d(64, 64, (3, 3), (1, 1), (1, 1))
-        self.conv3 = nn.Conv2d(64, 3 * 4 * 4, (3, 3), (1, 1), (1, 1))
+        self.conv1 = nn.Conv2d(3, 64, (3, 3), (1, 1), (3, 3), dilation=(3, 3))
+        self.conv2 = nn.Conv2d(64, 64, (3, 3), (1, 1), (3, 3), dilation=(3, 3))
+        self.conv3 = nn.Conv2d(64, 3 * 4 * 4, (3, 3), (1, 1), (3, 3), dilation=(3, 3))
         self.upsample = nn.PixelShuffle(upscale_factor=4)
         self.relu = nn.ReLU()
 
@@ -355,9 +352,9 @@ class SimpleSR_PixelShuffle(nn.Module):
 class SimpleSR_Upsample(nn.Module):
     def __init__(self):
         super(SimpleSR_Upsample, self).__init__()
-        self.conv1 = nn.Conv2d(3, 64, (3, 3), (1, 1), (1, 1))
-        self.conv2 = nn.Conv2d(64, 64, (3, 3), (1, 1), (1, 1))
-        self.conv3 = nn.Conv2d(64, 3, (3, 3), (1, 1), (1, 1))
+        self.conv1 = nn.Conv2d(3, 64, (3, 3), (1, 1), (3, 3), dilation=(3, 3))
+        self.conv2 = nn.Conv2d(64, 64, (3, 3), (1, 1), (3, 3), dilation=(3, 3))
+        self.conv3 = nn.Conv2d(64, 3, (3, 3), (1, 1), (3, 3), dilation=(3, 3))
         self.upsample = nn.Upsample(scale_factor=4)
         self.relu = nn.ReLU()
 
