@@ -46,7 +46,7 @@ if __name__ == '__main__':
     # state_dict_path = "checkpoint/JohnsonSR_without_PL_x4_final_epoch.pth"
     save_name = "JohnsonSR_with_PL"
     # save_name = "JohnsonSR_without_PL"
-    model = model.JohnsonSR(upscale_factor)
+    model = model.GradualSR(upscale_factor)
 
     for name, parameters in torch.load(state_dict_path).items():
         if name in model.state_dict().keys():

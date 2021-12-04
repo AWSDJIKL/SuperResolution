@@ -13,6 +13,7 @@ import numpy as np
 import torch.nn.functional as F
 from torchvision import transforms
 import config
+from torch.nn.modules.utils import _pair, _quadruple
 
 
 class SPCNet(nn.Module):
@@ -23,9 +24,9 @@ class SPCNet(nn.Module):
         :param upscale_factor: 放大倍数
         '''
         super(SPCNet, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels, 64, (5, 5), (1, 1), (2, 2))
-        self.conv2 = nn.Conv2d(64, 32, (3, 3), (1, 1), (1, 1))
-        self.conv3 = nn.Conv2d(32, in_channels * (upscale_factor ** 2), (3, 3), (1, 1), (1, 1))
+        self.conv1 = nn.Conv2d(in_channels, 64, (3, 3), (1, 1), (1, 1))
+        self.conv2 = nn.Conv2d(64, 64, (3, 3), (1, 1), (1, 1))
+        self.conv3 = nn.Conv2d(64, in_channels * (upscale_factor ** 2), (3, 3), (1, 1), (1, 1))
         # 重新排列像素
         self.pixel_shuffle = nn.PixelShuffle(upscale_factor)
         self.relu = nn.ReLU()
@@ -34,10 +35,11 @@ class SPCNet(nn.Module):
     def forward(self, x):
         x = self.relu(self.conv1(x))
         x = self.relu(self.conv2(x))
-        x = self.pixel_shuffle(self.conv3(x))
-        x = self.tanh(x)
-        x = torch.add(x, 1.)
-        x = torch.mul(x, 0.5)
+        x = self.conv3(x)
+        x = self.pixel_shuffle(x)
+        # x = self.tanh(x)
+        # x = torch.add(x, 1.)
+        # x = torch.mul(x, 0.5)
         return x
 
 
@@ -184,19 +186,19 @@ class ResidualBlock(nn.Module):
         self.conv2 = nn.Conv2d(output_channels, output_channels, (3, 3), (1, 1), (1, 1))
         self.bn2 = nn.BatchNorm2d(output_channels)
         self.conv1x1 = nn.Conv2d(input_channels, output_channels, (1, 1))
-        self.relu = nn.ReLU(inplace=False)
+        self.relu = nn.ReLU()
 
     def forward(self, x):
         identity = x
 
         output = self.conv1(x)
-        output = self.bn1(output)
+        # output = self.bn1(output)
         output = self.relu(output)
         output = self.conv2(output)
-        output = self.bn2(output)
+        # output = self.bn2(output)
         # output = self.relu(output)
 
-        identity = self.conv1x1(identity)
+        # identity = self.conv1x1(identity)
         output = output + identity
         # output = self.relu(output)
         return output
@@ -210,23 +212,21 @@ class Residual_SPC(nn.Module):
         :param upscale_factor: 放大倍数
         '''
         super(Residual_SPC, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels, 64, (5, 5), (1, 1), (2, 2))
+        self.conv1 = nn.Conv2d(in_channels, 64, (3, 3), (1, 1), (1, 1))
         self.block1 = ResidualBlock(input_channels=64, output_channels=64)
         self.block2 = ResidualBlock(input_channels=64, output_channels=64)
         self.block3 = ResidualBlock(input_channels=64, output_channels=64)
         self.block4 = ResidualBlock(input_channels=64, output_channels=64)
         self.conv2 = nn.Conv2d(64, in_channels * (upscale_factor ** 2), (3, 3), (1, 1), (1, 1))
 
-        self.ConvTranspose = nn.ConvTranspose2d(in_channels=in_channels, out_channels=in_channels,
-                                                kernel_size=(upscale_factor, upscale_factor),
-                                                stride=(upscale_factor, upscale_factor))
-        self.conv1x1 = nn.Conv2d(in_channels, in_channels, (1, 1), (1, 1))
+        # self.upsample = nn.UpsamplingBilinear2d(scale_factor=upscale_factor)
+        # self.conv1x1 = nn.Conv2d(in_channels, in_channels, (1, 1), (1, 1))
         # 重新排列像素
         self.pixel_shuffle = nn.PixelShuffle(upscale_factor)
         self.relu = nn.ReLU(inplace=False)
 
     def forward(self, x):
-        identity = x
+        # identity = x
 
         x = self.conv1(x)
         x = self.relu(x)
@@ -239,132 +239,155 @@ class Residual_SPC(nn.Module):
         x = self.conv2(x)
         x = self.pixel_shuffle(x)
 
-        identity = self.ConvTranspose(identity)
-        identity = self.conv1x1(identity)
-        output = x + identity
+        output = x
+        # identity = self.upsample(identity)
+        # # identity = self.conv1x1(identity)
+        # output = x + identity
 
         return output
 
 
 class ResBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, padding=0):
+    def __init__(self, in_channels, out_channels, kernel_size, stride, padding, dilation):
         super(ResBlock, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=padding)
-        self.conv2 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=padding)
-        self.bn1 = nn.BatchNorm2d(out_channels)
-        self.bn2 = nn.BatchNorm2d(out_channels)
+        # self.padding = nn.ReflectionPad2d((1, 1, 1, 1))
+        # padding = (0, 0)
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, dilation)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size, stride, padding, dilation)
         self.relu = nn.ReLU()
+        # self.relu = nn.LeakyReLU()
+        self.bn = nn.BatchNorm2d(out_channels)
 
     def forward(self, x):
         x_in = x
+        # x = self.padding(x)
         x = self.conv1(x)
-        x = self.bn1(x)
+        x = self.bn(x)
         x = self.relu(x)
+        # x = self.padding(x)
         x = self.conv2(x)
-        x = self.bn2(x)
-        return x + x_in
+        x = self.bn(x)
+        x = x + x_in
+        return x
 
 
 class UpBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, scale_factor, kernel_size, padding=0):
+    def __init__(self, in_channels, out_channels, kernel_size, padding):
         super(UpBlock, self).__init__()
-        # self.upsample = nn.Upsample(scale_factor=scale_factor)
-        self.upsample = nn.ConvTranspose2d(in_channels, out_channels, kernel_size=(scale_factor, scale_factor),
-                                           stride=(scale_factor, scale_factor))
+        self.upsample = nn.UpsamplingNearest2d(scale_factor=2)
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, padding=padding)
-        self.bn = nn.BatchNorm2d(out_channels)
-        self.relu = nn.ReLU()
+        # self.upsample = nn.ConvTranspose2d(in_channels, out_channels, (2, 2), (2, 2))
+        # self.batchnorm = nn.BatchNorm2d(out_channels)
+        # self.relu = nn.ReLU()
+        self.relu = nn.LeakyReLU()
 
     def forward(self, x):
+
         x = self.upsample(x)
         x = self.conv(x)
-        x = self.bn(x)
-        return self.relu(x)
+        # x = self.batchnorm(x)
+        x = self.relu(x)
+        return x
 
 
-class JohnsonSR(nn.Module):
+class GradualSR(nn.Module):
     def __init__(self, upscale_factor):
-        super(JohnsonSR, self).__init__()
-        self.batch_norm = nn.BatchNorm2d(3)
-        self.conv_in = nn.Conv2d(3, 64, kernel_size=9, padding=4)
-        self.resblock1 = ResBlock(64, 64, padding=1)
-        self.resblock2 = ResBlock(64, 64, padding=1)
-        self.resblock3 = ResBlock(64, 64, padding=1)
-        self.resblock4 = ResBlock(64, 64, padding=1)
-        self.upblock1 = UpBlock(64, 64, scale_factor=2, kernel_size=3, padding=1)
-        self.upblock2 = UpBlock(64, 64, scale_factor=2, kernel_size=3, padding=1)
-        self.conv_out = nn.Conv2d(64, 3, kernel_size=9, padding=4)
+        super(GradualSR, self).__init__()
+        # self.padding = nn.ReflectionPad2d(4)
+        self.conv_in = nn.Conv2d(3, 64, (3, 3), (1, 1), (1, 1), (1, 1))
+        self.resblock1 = ResBlock(64, 64, (3, 3), (1, 1), (1, 1), (1, 1))
+        self.resblock2 = ResBlock(64, 64, (3, 3), (1, 1), (1, 1), (1, 1))
+        self.resblock3 = ResBlock(64, 64, (3, 3), (1, 1), (1, 1), (1, 1))
+        self.resblock4 = ResBlock(64, 64, (3, 3), (1, 1), (1, 1), (1, 1))
+        self.upsample1 = UpBlock(64, 64, (3, 3), (1, 1))
+        self.upsample2 = UpBlock(64, 64, (3, 3), (1, 1))
+        self.conv2 = nn.Conv2d(64, 64, (3, 3), (1, 1), (1, 1))
+        self.conv3 = nn.Conv2d(64, 3, (3, 3), (1, 1), (1, 1))
+        # self.pool = nn.MaxPool2d(2)
+        # self.pixel_shffule = nn.PixelShuffle(upscale_factor)
+        # self.upsample = UpBlock(64, 64, upscale_factor, 3, 1, 1)
+        # self.medfilt = MedianPool2d(3)
+        # self.bn = nn.BatchNorm2d(3)
+        self.relu = nn.ReLU()
+        self.bicubic = nn.UpsamplingBilinear2d(scale_factor=4)
 
     def forward(self, x):
-        # x = self.batch_norm(x)
+        x_in = x
+        # x = self.padding(x)
         x = self.conv_in(x)
+        x = self.relu(x)
         x = self.resblock1(x)
         x = self.resblock2(x)
         x = self.resblock3(x)
         x = self.resblock4(x)
-        x = self.upblock1(x)
-        x = self.upblock2(x)
-        x = self.conv_out(x)
-        return x
+        x = self.upsample1(x)
+        x = self.upsample2(x)
+        # x = self.padding(x)
+        # x = self.conv_out(x)
+        # x = self.medfilt(x)
 
-
-class SimpleSR_ConvTranspose(nn.Module):
-    def __init__(self):
-        super(SimpleSR_ConvTranspose, self).__init__()
-        self.conv1 = nn.Conv2d(3, 64, (3, 3), (1, 1), (3, 3), dilation=(3, 3))
-        self.conv2 = nn.Conv2d(64, 64, (3, 3), (1, 1), (3, 3), dilation=(3, 3))
-        self.conv3 = nn.Conv2d(64, 3, (3, 3), (1, 1), (3, 3), dilation=(3, 3))
-        self.upsample = nn.ConvTranspose2d(3, 3, (4, 4), (4, 4))
-        self.relu = nn.ReLU()
-
-    def forward(self, x):
-        x = self.upsample(x)
-        x = self.conv1(x)
-        x = self.relu(x)
         x = self.conv2(x)
         x = self.relu(x)
         x = self.conv3(x)
-        x = self.relu(x)
 
+        x_in = self.bicubic(x_in)
+        x = x + x_in
         return x
 
 
-class SimpleSR_PixelShuffle(nn.Module):
-    def __init__(self):
-        super(SimpleSR_PixelShuffle, self).__init__()
-        self.conv1 = nn.Conv2d(3, 64, (3, 3), (1, 1), (3, 3), dilation=(3, 3))
-        self.conv2 = nn.Conv2d(64, 64, (3, 3), (1, 1), (3, 3), dilation=(3, 3))
-        self.conv3 = nn.Conv2d(64, 3 * 4 * 4, (3, 3), (1, 1), (3, 3), dilation=(3, 3))
-        self.upsample = nn.PixelShuffle(upscale_factor=4)
-        self.relu = nn.ReLU()
+class MedianPool2d(nn.Module):
+    """ Median pool (usable as median filter when stride=1) module.
+
+    Args:
+         kernel_size: size of pooling kernel, int or 2-tuple
+         stride: pool stride, int or 2-tuple
+         padding: pool padding, int or 4-tuple (l, r, t, b) as in pytorch F.pad
+         same: override padding and enforce same padding, boolean
+    """
+
+    def __init__(self, kernel_size=3, stride=1, padding=1, same=False):
+        super(MedianPool2d, self).__init__()
+        self.k = _pair(kernel_size)
+        self.stride = _pair(stride)
+        self.padding = _quadruple(padding)  # convert to l, r, t, b
+        self.same = same
+
+    def _padding(self, x):
+        if self.same:
+            ih, iw = x.size()[2:]
+            if ih % self.stride[0] == 0:
+                ph = max(self.k[0] - self.stride[0], 0)
+            else:
+                ph = max(self.k[0] - (ih % self.stride[0]), 0)
+            if iw % self.stride[1] == 0:
+                pw = max(self.k[1] - self.stride[1], 0)
+            else:
+                pw = max(self.k[1] - (iw % self.stride[1]), 0)
+            pl = pw // 2
+            pr = pw - pl
+            pt = ph // 2
+            pb = ph - pt
+            padding = (pl, pr, pt, pb)
+        else:
+            padding = self.padding
+        return padding
 
     def forward(self, x):
-        x = self.conv1(x)
-        x = self.relu(x)
-        x = self.conv2(x)
-        x = self.relu(x)
-        x = self.conv3(x)
-        x = self.relu(x)
-        x = self.upsample(x)
+        # using existing pytorch functions and tensor ops so that we get autograd,
+        # would likely be more efficient to implement from scratch at C/Cuda level
+        x = F.pad(x, self._padding(x), mode='reflect')
+        x = x.unfold(2, self.k[0], self.stride[0]).unfold(3, self.k[1], self.stride[1])
+        x = x.contiguous().view(x.size()[:4] + (-1,)).median(dim=-1)[0]
         return x
 
 
-class SimpleSR_Upsample(nn.Module):
+class Pooling(nn.Module):
     def __init__(self):
-        super(SimpleSR_Upsample, self).__init__()
-        self.conv1 = nn.Conv2d(3, 64, (3, 3), (1, 1), (3, 3), dilation=(3, 3))
-        self.conv2 = nn.Conv2d(64, 64, (3, 3), (1, 1), (3, 3), dilation=(3, 3))
-        self.conv3 = nn.Conv2d(64, 3, (3, 3), (1, 1), (3, 3), dilation=(3, 3))
-        self.upsample = nn.Upsample(scale_factor=4)
-        self.relu = nn.ReLU()
+        super(Pooling, self).__init__()
+        self.pool = nn.MaxPool2d(2)
 
     def forward(self, x):
-        x = self.upsample(x)
-        x = self.conv1(x)
-        x = self.relu(x)
-        x = self.conv2(x)
-        x = self.relu(x)
-        x = self.conv3(x)
-        x = self.relu(x)
-
+        x = self.pool(x)
         return x
+
+

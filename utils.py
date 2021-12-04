@@ -16,6 +16,7 @@ from torch.autograd import Variable
 from torchvision.transforms import ToTensor
 import torch.nn.functional as F
 from PIL import Image, ImageDraw, ImageFont
+import SubPixelConvolution.model
 
 
 def calculate_psnr(img1, img2):
@@ -144,12 +145,16 @@ def lr_transform(img_size, upscale_factor):
     :return:
     '''
     new_size = [i // upscale_factor for i in img_size]
+    # vgg_mean = torch.tensor((103.939, 116.779, 123.68)).view(3, 1, 1).expand((3, new_size[0], new_size[1]))
+    # vgg_mean = torch.tensor((123.68, 116.779, 103.939)).view(3, 1, 1).expand((3, new_size[0], new_size[1]))
     # print("original size =", img_size)
     # print("new size =", new_size)
     return transforms.Compose([
         transforms.CenterCrop(img_size),
         transforms.Resize(new_size),
         transforms.ToTensor(),
+        # transforms.Lambda(lambda img: img[torch.LongTensor([2, 1, 0])]),
+        # transforms.Lambda(lambda img: img * 255 - vgg_mean),
         # transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
     ])
 
@@ -160,23 +165,31 @@ def hr_transform(img_size):
     :param img_size:
     :return:
     '''
+    # vgg_mean = torch.tensor((103.939, 116.779, 123.68)).view(3, 1, 1).expand((3, img_size[0], img_size[1]))
+    # vgg_mean = torch.tensor((123.68, 116.779, 103.939)).view(3, 1, 1).expand((3, img_size[0], img_size[1]))
     return transforms.Compose([
         transforms.CenterCrop(img_size),
         transforms.ToTensor(),
+        # transforms.Lambda(lambda img: img[torch.LongTensor([2, 1, 0])]),
+        # transforms.Lambda(lambda img: img * 255 - vgg_mean)
         # transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
     ])
 
 
+def deprocess(img_size):
+    vgg_mean = torch.tensor((123.68, 116.779, 103.939)).view(3, 1, 1).expand((3, img_size[0], img_size[1])).cuda()
+    return transforms.Compose([
+        # transforms.Lambda(lambda img: img[torch.LongTensor([2, 1, 0])]),
+        transforms.Lambda(lambda img: (img + vgg_mean) / 255)
+    ])
+
+
 def tensor_to_image(tensor):
-    # mu = torch.Tensor((0.485, 0.456, 0.406)).view(-1, 1, 1).cuda()
-    # sigma = torch.Tensor((0.229, 0.224, 0.225)).view(-1, 1, 1).cuda()
+    # tr_mean, tr_std = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
+    # mu = torch.Tensor(tr_mean).view(-1, 1, 1).cuda()
+    # sigma = torch.Tensor(tr_std).view(-1, 1, 1).cuda()
     # img = transforms.ToPILImage()((tensor * sigma + mu).clamp(0, 1))
-    img = transforms.ToPILImage()((tensor).clamp(0, 1))
-    # img = tensor.cpu().numpy()
-    # img = np.swapaxes(img, 0, 2)
-    # img = np.swapaxes(img, 0, 1)
-    # img = np.array(img * 255, dtype=np.uint8)
-    # img = Image.fromarray(img, "RGB")
+    img = transforms.ToPILImage()(tensor)
     return img
 
 
@@ -349,8 +362,6 @@ def test_model(model, test_image_path, upscale_factor, save_name):
     :param upscale_factor: 放大倍数
     :return:
     '''
-    image_list = []
-    image_text_list = []
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     model.to(device)
@@ -365,9 +376,6 @@ def test_model(model, test_image_path, upscale_factor, save_name):
     # lr_image = lr_transform((image_height, image_width), upscale_factor)(origin_image)
     # hr_image = hr_transform((image_height, image_width))(origin_image)
 
-    image_list.append(hr_image)
-    image_text_list.append("HR image")
-
     bicubic = lr_image.resize((image_width, image_height), resample=Image.BICUBIC)
     psnr = calculate_psnr(Variable(ToTensor()(hr_image)).to(device),
                           Variable(ToTensor()(bicubic)).to(device))
@@ -381,26 +389,33 @@ def test_model(model, test_image_path, upscale_factor, save_name):
     ssim = calculate_ssim(Variable(ToTensor()(hr_y)).to(device),
                           Variable(ToTensor()(bicubic_y)).to(device))
     # transforms.ToPILImage()(bicubic).convert('RGB').save(img_name + "_bicubic_x{}".format(upscale_factor) + suffix)
-    image_list.append(bicubic)
-    image_text_list.append("bicubic\nPSNR: {}".format(psnr))
-    print('bicubic PSNR: {}'.format(psnr))
-    print("bicubic SSIM: {}".format(ssim))
+
+    # print('bicubic PSNR: {}'.format(psnr))
+    # print("bicubic SSIM: {}".format(ssim))
 
     x = Variable(ToTensor()(lr_image)).to(device).unsqueeze(0)  # 补上batch_size那一维
     y = Variable(ToTensor()(hr_image)).to(device)
+    # x = lr_transform((image_height, image_width), upscale_factor)(origin_image).to(device).unsqueeze(0)
+    # y = hr_transform((image_height, image_width))(origin_image).to(device)
+    # print(x)
+    # print(y)
     # x = lr_image.to(device).unsqueeze(0)  # 补上batch_size那一维
     # y = hr_image.to(device)
-
+    # medianpool = SubPixelConvolution.model.MedianPool2d(3)
     with torch.no_grad():
-        out = model(x).clip(0, 1).squeeze()
-        # out = model(x).squeeze()
+        # out = model(x).clip(0, 1).squeeze()
+        out = model(x).clip(0, 1)
+        # out = medianpool(out)
+        out = out.squeeze()
     # out, y = histogram_match(out, y)
+    # out = deprocess((image_height, image_width))(out)
+    # y = deprocess((image_height, image_width))(y)
     psnr = calculate_psnr(y, out)
     out_y, _, _ = transforms.ToPILImage()(out).convert('YCbCr').split()
+    # print(out_y.size)
+    # print(hr_y.size)
     ssim = calculate_ssim(Variable(ToTensor()(hr_y)).to(device),
                           Variable(ToTensor()(out_y)).to(device))
-    image_list.append(out)
-    image_text_list.append("{}\nPSNR: {}".format(save_name, psnr))
     print('{} PSNR: {}'.format(save_name, psnr))
     print('{} SSIM: {}'.format(save_name, ssim))
     out = tensor_to_image(out)

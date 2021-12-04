@@ -21,8 +21,8 @@ from torch.optim.lr_scheduler import MultiStepLR
 import numpy as np
 import utils
 from PerceptualLoss import lossfunction
-from SubPixelConvolution import model
-# from ResizeConvolution import model
+# from SubPixelConvolution import model
+from JohnsonSR import model
 from utils import calculate_psnr  # noqa: E402
 import datasets
 import config
@@ -78,8 +78,8 @@ def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch, 
         count = 0
         model.eval()
         with torch.no_grad():
-            progress = tqdm.tqdm(val_loader, total=len(train_loader))
-            for (x, y) in progress:
+            # progress = tqdm.tqdm(val_loader, total=len(train_loader))
+            for index, (x, y) in enumerate(val_loader, 0):
                 x = x.to(device)
                 y = y.to(device)
                 out = model(x)
@@ -105,7 +105,6 @@ def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch, 
         print("psnr:{}  best psnr:{}".format(epoch_psnr, best_psnr))
         print("loss:{}".format(epoch_loss))
         print("  用时:{}min".format((time.time() - epoch_start_time) / 60))
-
     # 保存最后一个epoch的模型，作为比对
     torch.save(model.state_dict(),
                os.path.join(save_path, "{}_final_epoch.pth".format(experiment_name)))
@@ -140,21 +139,21 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="感知损失模型")
     parser.add_argument("--upscale_factor", default=4, type=int, help="scale factor, Default: 3")
     parser.add_argument("--lr", default=1e-3, type=float, help="lr")
-    parser.add_argument("--epoch", default=30, type=int, help="epoch")
+    parser.add_argument("--epoch", default=100, type=int, help="epoch")
     # parser.add_argument("--experiment_name", default="SPC_with_PL", type=str, help="experiment name")
     # parser.add_argument("--use_pl", default=True, type=bool, help="use Perceptual Loss")
-    parser.add_argument("--use_pl", default=False, type=lambda x: x.lower() == 'true', help="use Perceptual Loss")
+    parser.add_argument("--use_pl", default=True, type=lambda x: x.lower() == 'true', help="use Perceptual Loss")
     vgg16_layers = ["relu1_2", "relu2_2", "relu3_3", "relu4_3"]
     parser.add_argument("--output_layer", default="relu2_2", type=str, choices=vgg16_layers,
                         help="Perceptual Loss's output layer")
     parser.add_argument("--use_pretrain", default=False, type=lambda x: x.lower() == 'true', help="use Pretrain model")
     parser.add_argument("--model_path",
-                        default="checkpoint/SPCNet_without_PL_x4/SPCNet_without_PL_x4_final_epoch.pth",
+                        default="checkpoint/GradualSR_without_PL_x4/GradualSR_without_PL_x4_final_epoch.pth",
                         type=str, help="pretrain model path")
 
     start_time = time.time()
     # 固定随机种子
-    setup_seed(100)
+    # setup_seed(100)
     args = parser.parse_args()
     # torch.autograd.set_detect_anomaly(True)
     device = torch.device('cuda:0')
@@ -162,9 +161,10 @@ if __name__ == '__main__':
 
     cudnn.benchmark = True
     torch.backends.cudnn.deterministic = True
-    model = model.SPCNet(args.upscale_factor)
+    # model = model.SPCNet(args.upscale_factor)
     # model = model.Residual_SPC(args.upscale_factor)
-    # model = model.JohnsonSR(args.upscale_factor)
+    # model = model.GradualSR(args.upscale_factor)
+    model = model.JohnsonSR()
     model = model.to(device)
 
     if args.use_pretrain:
@@ -175,8 +175,8 @@ if __name__ == '__main__':
     # 调整学习率，在第40，80个epoch时改变学习率
     scheduler = MultiStepLR(optimizer, milestones=[int(args.epoch * 0.8)], gamma=0.1)
     if args.use_pl:
-        # criterion = lossfunction.vgg16_loss(output_layer=args.output_layer)
-        criterion = lossfunction.resnet_loss()
+        criterion = lossfunction.vgg16_loss(output_layer=args.output_layer)
+        # criterion = lossfunction.resnet_loss()
         # experiment_name = model.__class__.__name__ + "_with_mix_PL_" + args.output_layer + "_x" + str(args.upscale_factor)
         experiment_name = model.__class__.__name__ + "_with_PL_" + args.output_layer + "_x" + str(args.upscale_factor)
     else:

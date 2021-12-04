@@ -28,6 +28,7 @@ import config
 from PIL import Image
 import tqdm
 
+
 def train_and_val(model, train_loaders, val_loaders, criterion, optimizer, epoch, experiment_name):
     if not os.path.exists("checkpoint"):
         os.mkdir("checkpoint")
@@ -142,7 +143,6 @@ if __name__ == '__main__':
     vgg16_layers = ["relu1_2", "relu2_2", "relu3_3", "relu4_3"]
     parser.add_argument("--output_layer", default="relu1_2", type=str, choices=vgg16_layers,
                         help="Perceptual Loss's output layer")
-
 
     # 固定随机种子
     setup_seed(100)

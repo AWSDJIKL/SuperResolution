@@ -37,8 +37,8 @@ class PerceptualVGG16(nn.Module):
             if name in pretrain_state_dict.keys():
                 # print(name)
                 self.state_dict()[name].copy_(pretrain_state_dict[name])
-        for param in self.parameters():
-            param.requires_grad = False
+        # for param in self.parameters():
+        #     param.requires_grad = False
 
     def forward(self, x):
         x = self.features(x)
@@ -71,7 +71,7 @@ class vgg16_loss(nn.Module):
         # 定义必要的超参数
         super(vgg16_loss, self).__init__()
         self.PerceptualModel = PerceptualVGG16(output_layer).cuda()
-        self.PerceptualModel.eval()
+        # self.PerceptualModel.eval()
 
     def forward(self, pred, y):
         # pred = transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))(pred)
@@ -362,8 +362,8 @@ class PerceptualResNet50(nn.Module):
         self.resnet.load_state_dict(pretrain_state_dict, False)
         # print(self.state_dict())
         # 不计算梯度
-        for param in self.parameters():
-            param.requires_grad = False
+        # for param in self.parameters():
+        #     param.requires_grad = False
 
     def forward(self, x):
         x = self.resnet(x)
@@ -387,7 +387,7 @@ class resnet_loss(nn.Module):
         (batch_size, c, h, w) = perceptual_y.size()
         perceptual_loss = torch.nn.MSELoss()(perceptual_pred, perceptual_y) / (batch_size * c * h * w)
         # mse_loss = torch.nn.MSELoss()(pred, y)
-        # loss = 0.25 * mse_loss + 0.75 * perceptual_loss
+        # loss = mse_loss + perceptual_loss
         loss = perceptual_loss
         pred.cpu()
         y.cpu()
