@@ -15,6 +15,7 @@ import psutil
 import sys
 import h5py
 import numpy as np
+import tqdm
 import wget
 from PIL import Image
 import datasets
@@ -52,22 +53,29 @@ def uncompress(src_file, output_dir=None):
         output_dir = file_path
         # os.mkdir(output_dir)
         print(output_dir)
+    # 根据压缩文件类型选择不同的方式解压
     if file_format in ('.tgz', '.tar'):
         tar = tarfile.open(src_file)
         names = tar.getnames()
         for name in names:
             tar.extract(name, output_dir)
         tar.close()
+        # 删除压缩文件，节省空间
+        os.remove(src_file)
     elif file_format == '.zip':
         zip_file = zipfile.ZipFile(src_file)
         for names in zip_file.namelist():
             zip_file.extract(names, output_dir)
         zip_file.close()
+        # 删除压缩文件，节省空间
+        os.remove(src_file)
     elif file_format == '.gz':
         f_name = output_dir + '/' + os.path.basename(src_file)
         g_file = gzip.GzipFile(src_file)
         open(f_name, "w+").write(g_file.read())
         g_file.close()
+        # 删除压缩文件，节省空间
+        os.remove(src_file)
     else:
         print('文件格式不支持或者不是压缩文件')
         return
@@ -88,8 +96,8 @@ def download_datasets(dataset_path):
         uncompress(file_name)
 
 
-def prepare_train_h5py(image_path_list, upscale_factor, output_dir, crop_image=False, patch_size=17, stride=13,
-                       block_size=1 * 1024 * 1024):
+def prepare_train_h5py(image_path_list, upscale_factor, output_dir, crop_image=False, patch_size=72, stride=13,
+                       block_size=512 * 512):
     if os.path.exists(output_dir):
         shutil.rmtree(output_dir)
     os.mkdir(output_dir)
@@ -100,9 +108,10 @@ def prepare_train_h5py(image_path_list, upscale_factor, output_dir, crop_image=F
     lr_list = []
     hr_list = []
     # 检测内存占用
-    memory = psutil.virtual_memory()
+    # memory = psutil.virtual_memory()
     print(crop_image)
-    for path in image_path_list:
+    progress = tqdm.tqdm(image_path_list, total=len(image_path_list))
+    for path in progress:
         # print(path)
         hr = Image.open(path).convert('RGB')
         hr_width = (hr.width // upscale_factor) * upscale_factor
@@ -129,19 +138,20 @@ def prepare_train_h5py(image_path_list, upscale_factor, output_dir, crop_image=F
 
         # print(sys.getsizeof(lr_list) + sys.getsizeof(hr_list))
         # 检查内存使用情况，若超过指定block_size则分块
-        # if sys.getsizeof(lr_list) + sys.getsizeof(hr_list) > block_size:
-        #     # 保存
-        #     lr_list = np.array(lr_list)
-        #     hr_list = np.array(hr_list)
-        #     h5_file.create_dataset('lr', data=lr_list)
-        #     h5_file.create_dataset('hr', data=hr_list)
-        #     h5_file.close()
-        #     block_count += 1
-        #     # 开启下一个分块
-        #     h5file_path = os.path.join(output_dir, "{}.h5".format(block_count))
-        #     h5_file = h5py.File(h5file_path, 'w')
-        #     lr_list = []
-        #     hr_list = []
+        if sys.getsizeof(lr_list) + sys.getsizeof(hr_list) > block_size:
+            print("开启新分块")
+            # 保存
+            lr_list = np.array(lr_list)
+            hr_list = np.array(hr_list)
+            h5_file.create_dataset('lr', data=lr_list)
+            h5_file.create_dataset('hr', data=hr_list)
+            h5_file.close()
+            block_count += 1
+            # 开启下一个分块
+            h5file_path = os.path.join(output_dir, "{}.h5".format(block_count))
+            h5_file = h5py.File(h5file_path, 'w')
+            lr_list = []
+            hr_list = []
 
     # 保存最后的分块
     print(len(lr_list))
@@ -200,13 +210,13 @@ if __name__ == '__main__':
     download_datasets(dataset_path)
     print("所有数据集下载完成")
 
-    print("开始集合数据集")
-    train_image_list = datasets.get_train_image_list()
-    val_image_list = datasets.get_val_image_list()
-    print("训练集共{}张图片".format(len(train_image_list)))
-    print("测试集共{}张图片".format(len(val_image_list)))
-    train_set_output_dir = "dataset/x4_train"
-    val_set_output_dir = "dataset/x4_val"
-    prepare_train_h5py(train_image_list, 4, train_set_output_dir, crop_image=True)
-    prepare_val_h5py(val_image_list, 4, val_set_output_dir)
-    print("数据集集合完毕")
+    # print("开始集合数据集")
+    # train_image_list = datasets.get_train_image_list()
+    # val_image_list = datasets.get_val_image_list()
+    # print("训练集共{}张图片".format(len(train_image_list)))
+    # print("测试集共{}张图片".format(len(val_image_list)))
+    # train_set_output_dir = "dataset/x4_train"
+    # val_set_output_dir = "dataset/x4_val"
+    # prepare_train_h5py(train_image_list, 4, train_set_output_dir, crop_image=True)
+    # prepare_val_h5py(val_image_list, 4, val_set_output_dir)
+    # print("数据集集合完毕")

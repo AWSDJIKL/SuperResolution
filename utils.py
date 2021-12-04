@@ -103,6 +103,7 @@ def load_image_RGB(image_path):
     :return:
     '''
     image = Image.open(image_path).convert("RGB")
+
     return image
 
 
@@ -137,25 +138,15 @@ class AddGaussianNoise():
         return img
 
 
-def lr_transform(img_size, upscale_factor):
+def lr_transform(img_size):
     '''
 
     :param img_size: 原图大小
     :param upscale_factor:
     :return:
     '''
-    new_size = [i // upscale_factor for i in img_size]
-    # vgg_mean = torch.tensor((103.939, 116.779, 123.68)).view(3, 1, 1).expand((3, new_size[0], new_size[1]))
-    # vgg_mean = torch.tensor((123.68, 116.779, 103.939)).view(3, 1, 1).expand((3, new_size[0], new_size[1]))
-    # print("original size =", img_size)
-    # print("new size =", new_size)
     return transforms.Compose([
-        transforms.CenterCrop(img_size),
-        transforms.Resize(new_size),
-        transforms.ToTensor(),
-        # transforms.Lambda(lambda img: img[torch.LongTensor([2, 1, 0])]),
-        # transforms.Lambda(lambda img: img * 255 - vgg_mean),
-        # transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+        transforms.Resize(img_size)
     ])
 
 
@@ -165,14 +156,10 @@ def hr_transform(img_size):
     :param img_size:
     :return:
     '''
-    # vgg_mean = torch.tensor((103.939, 116.779, 123.68)).view(3, 1, 1).expand((3, img_size[0], img_size[1]))
-    # vgg_mean = torch.tensor((123.68, 116.779, 103.939)).view(3, 1, 1).expand((3, img_size[0], img_size[1]))
     return transforms.Compose([
-        transforms.CenterCrop(img_size),
+        # transforms.CenterCrop(img_size),
+        transforms.RandomCrop(img_size),
         transforms.ToTensor(),
-        # transforms.Lambda(lambda img: img[torch.LongTensor([2, 1, 0])]),
-        # transforms.Lambda(lambda img: img * 255 - vgg_mean)
-        # transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
     ])
 
 

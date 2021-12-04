@@ -26,20 +26,7 @@ class ResBlock(nn.Module):
         x = self.relu(x)
         x = self.conv3x3_2(x)
         x = self.batchnorm(x)
-        return x + x_in
-
-
-class ConvBatchRelu(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, padding=0):
-        super(ConvBatchRelu, self).__init__()
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, padding=padding)
-        self.batchnorm = nn.BatchNorm2d(out_channels)
-        self.relu = nn.ReLU()
-
-    def forward(self, x):
-        x = self.conv(x)
-        # x = self.batchnorm(x)
-        x = self.relu(x)
+        x = x + x_in
         return x
 
 
@@ -63,7 +50,7 @@ class JohnsonSR(nn.Module):
     def __init__(self):
         super(JohnsonSR, self).__init__()
         self.batch_norm = nn.BatchNorm2d(3)
-        self.conv_in = ConvBatchRelu(3, 64, kernel_size=9, padding=4)
+        self.conv_in = nn.Conv2d(3, 64, kernel_size=9, padding=4)
         self.resblock1 = ResBlock(64, 64, padding=1)
         self.resblock2 = ResBlock(64, 64, padding=1)
         self.resblock3 = ResBlock(64, 64, padding=1)
@@ -71,11 +58,11 @@ class JohnsonSR(nn.Module):
         self.upblock1 = UpBlock(64, 64, kernel_size=3, padding=1)
         self.upblock2 = UpBlock(64, 64, kernel_size=3, padding=1)
         self.conv_out = nn.Conv2d(64, 3, kernel_size=9, padding=4)
-        self.tanh = nn.Tanh()
+        self.relu = nn.ReLU()
 
     def forward(self, x):
-        # x = self.batch_norm(x)
         x = self.conv_in(x)
+        x = self.relu(x)
         x = self.resblock1(x)
         x = self.resblock2(x)
         x = self.resblock3(x)
@@ -83,5 +70,4 @@ class JohnsonSR(nn.Module):
         x = self.upblock1(x)
         x = self.upblock2(x)
         x = self.conv_out(x)
-        # x = self.tanh(x)
         return x

@@ -140,8 +140,8 @@ if __name__ == '__main__':
     parser.add_argument("--upscale_factor", default=4, type=int, help="scale factor, Default: 3")
     parser.add_argument("--lr", default=1e-3, type=float, help="lr")
     parser.add_argument("--epoch", default=100, type=int, help="epoch")
-    # parser.add_argument("--experiment_name", default="SPC_with_PL", type=str, help="experiment name")
-    # parser.add_argument("--use_pl", default=True, type=bool, help="use Perceptual Loss")
+    parser.add_argument("--batch_size", default=8, type=int, help="batch_size")
+    parser.add_argument("--num_workers", default=1, type=int, help="num_workers")
     parser.add_argument("--use_pl", default=True, type=lambda x: x.lower() == 'true', help="use Perceptual Loss")
     vgg16_layers = ["relu1_2", "relu2_2", "relu3_3", "relu4_3"]
     parser.add_argument("--output_layer", default="relu2_2", type=str, choices=vgg16_layers,

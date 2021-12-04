@@ -7,7 +7,6 @@
 # @File    : datasets.py
 import os
 from glob import glob
-
 from PIL import Image, ImageFilter
 import numpy as np
 from torch.utils.data import Dataset
@@ -89,20 +88,21 @@ class SuperResolutionDataset(Dataset):
 
 
 class GeneralRGBDataset(Dataset):
-    def __init__(self, img_list, upscale_factor=3, loader=load_image_RGB):
+    def __init__(self, img_list, upscale_factor=3, hr_size=288, loader=load_image_RGB):
         super(GeneralRGBDataset, self).__init__()
         self.img_list = img_list
         self.upscale_factor = upscale_factor
         self.loader = loader
+        self.hr_size = hr_size
 
     def __getitem__(self, index):
         img = self.loader(self.img_list[index])
-        # 添加高斯噪声
-        # gauss_img = img.filter(ImageFilter.GaussianBlur(radius=1))
-        width = (img.width // self.upscale_factor) * self.upscale_factor
-        height = (img.height // self.upscale_factor) * self.upscale_factor
-        lr = lr_transform((height, width), self.upscale_factor)(img)
+        if img.width < self.hr_size or img.height < self.hr_size:
+            img = img.resize((self.hr_size, self.hr_size))
+        width = (self.hr_size // self.upscale_factor) * self.upscale_factor
+        height = (self.hr_size // self.upscale_factor) * self.upscale_factor
         hr = hr_transform((height, width))(img)
+        lr = lr_transform((int(height / self.upscale_factor), int(width / self.upscale_factor)))(hr)
         return lr, hr
 
     def __len__(self):
@@ -133,8 +133,9 @@ class GeneralYCbCrDataset(Dataset):
 def get_train_image_list():
     file_dirs = [
         "dataset/BSD500/BSR/BSDS500/data/images",
-        # "dataset/ms-coco/train2014",
-        # "dataset/ms-coco/test2014",
+        # "dataset/ms_coco_train/train2014",
+        # "dataset/ms_coco_val/val2014",
+        "dataset/ms_coco_test/test2014",
         # "dataset/DIV2K_train/DIV2K_train_HR",
         # "dataset/DIV2K_valid/DIV2K_valid_HR",
     ]
@@ -165,11 +166,12 @@ def get_val_image_list():
 def get_super_resolution_dataloader(args):
     train_list = get_train_image_list()
     val_list = get_val_image_list()
-    train_loader = DataLoader(GeneralRGBDataset(train_list, upscale_factor=args.upscale_factor))
-    val_loader = DataLoader(GeneralRGBDataset(val_list, upscale_factor=args.upscale_factor))
+    print("train on {} samples, batch_size={}".format(len(train_list), args.batch_size))
+    train_loader = DataLoader(GeneralRGBDataset(train_list, upscale_factor=args.upscale_factor),
+                              batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True)
+    val_loader = DataLoader(GeneralRGBDataset(val_list, upscale_factor=args.upscale_factor),
+                            batch_size=args.batch_size, num_workers=args.num_workers)
 
-    # train_loader = DataLoader(SuperResolutionDataset(train_list), batch_size=8)
-    # val_loader = DataLoader(SuperResolutionDataset(val_list), batch_size=8)
     return train_loader, val_loader
 
 
