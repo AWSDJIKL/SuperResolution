@@ -6,7 +6,6 @@
 # @Author  : LINYANZHEN
 # @File    : train.py
 import argparse
-import datetime
 from PIL import Image
 import os
 import random
@@ -14,18 +13,17 @@ import shutil
 import time
 import matplotlib.pyplot as plt
 import torch
-import torchvision
 from torch import nn
 from torch.backends import cudnn
 from torch.optim.lr_scheduler import MultiStepLR
 import numpy as np
 import utils
-from PerceptualLoss import lossfunction
+from lossfunction import PerceptualLoss
+from lossfunction import MixLoss
 # from SubPixelConvolution import model
 from JohnsonSR import model
 from utils import calculate_psnr  # noqa: E402
 import datasets
-import config
 import tqdm
 
 
@@ -36,8 +34,10 @@ def train_and_val(model, train_loader, val_loader, criterion, optimizer, epoch, 
     if os.path.exists(save_path):
         shutil.rmtree(save_path)
     os.mkdir(save_path)
-    test_img_path = os.path.join(save_path, "test.png")
-    Image.open("img_test/test.png").save(test_img_path)
+    test_img_path = os.path.join(save_path, "bird.png")
+    Image.open("img_test/bird/bird.jpg").save(test_img_path)
+    # test_img_path = os.path.join(save_path, "test.png")
+    # Image.open("img_test/test.png").save(test_img_path)
     psnr_list = []
     loss_list = []
     best_psnr = 0
@@ -173,9 +173,12 @@ if __name__ == '__main__':
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     # 调整学习率，在第40，80个epoch时改变学习率
-    scheduler = MultiStepLR(optimizer, milestones=[int(args.epoch * 0.8)], gamma=0.1)
+    # scheduler = MultiStepLR(optimizer, milestones=[int(args.epoch * 0.1 * i) for i in range(1, 10, 2)], gamma=0.1)
+    scheduler = MultiStepLR(optimizer, milestones=[int(args.epoch * 0.4), int(args.epoch * 0.8)], gamma=0.1)
     if args.use_pl:
-        criterion = lossfunction.vgg16_loss(output_layer=args.output_layer)
+        criterion = PerceptualLoss.vgg16_loss(output_layer=args.output_layer)
+        # criterion = MixLoss.MixLoss()
+
         # criterion = lossfunction.resnet_loss()
         # experiment_name = model.__class__.__name__ + "_with_mix_PL_" + args.output_layer + "_x" + str(args.upscale_factor)
         experiment_name = model.__class__.__name__ + "_with_PL_" + args.output_layer + "_x" + str(args.upscale_factor)

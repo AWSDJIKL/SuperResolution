@@ -6,27 +6,22 @@
 # @Author  : LINYANZHEN
 # @File    : train_use_h5dataset.py
 import argparse
-import datetime
 import os
 import random
 import shutil
 import time
 import matplotlib.pyplot as plt
 import torch
-import torchvision
 from torch import nn
 from torch.backends import cudnn
 from torch.optim.lr_scheduler import MultiStepLR
 import numpy as np
 import utils
-from PerceptualLoss import lossfunction
 from SubPixelConvolution import model
 # from ResizeConvolution import model
 from utils import calculate_psnr  # noqa: E402
 import datasets
-import config
 from PIL import Image
-import tqdm
 
 
 def train_and_val(model, train_loaders, val_loaders, criterion, optimizer, epoch, experiment_name):

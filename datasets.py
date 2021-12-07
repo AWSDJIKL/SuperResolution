@@ -7,6 +7,7 @@
 # @File    : datasets.py
 import os
 from glob import glob
+
 from PIL import Image, ImageFilter
 import numpy as np
 from torch.utils.data import Dataset
@@ -14,6 +15,7 @@ import h5py
 from utils import load_image_RGB, lr_transform, hr_transform, load_image_ycbcr
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor
+from torchvision import transforms
 
 
 class TrainDataset(Dataset):
@@ -64,31 +66,39 @@ class GeneralH5pyDataset(Dataset):
 class SuperResolutionDataset(Dataset):
     def __init__(self, img_list, large_size=(288, 288), small_size=(72, 72), transforms=None):
         self.img_list = img_list
+        self.transforms = transforms
         self.large_size = large_size
         self.small_size = small_size
 
     def make_pair(self, target):
         resize = Compose([Resize(self.large_size[0]),
                           CenterCrop(self.large_size)])
-        hr = resize(target)
-        lr = hr.filter(ImageFilter.GaussianBlur(radius=1))
-        lr = lr.resize(self.small_size, Image.BILINEAR)
-
-        return lr, hr
+        target = resize(target)
+        img = target.filter(ImageFilter.GaussianBlur(radius=1))
+        img = img.resize(self.small_size, Image.BILINEAR)
+        return img, target
 
     def __len__(self):
         return len(self.img_list)
 
     def __getitem__(self, idx):
         target = Image.open(self.img_list[idx]).convert('RGB')
-        lr, hr = self.make_pair(target)
-        lr = ToTensor()(lr)
-        hr = ToTensor()(hr)
-        return lr, hr
+        img, target = self.make_pair(target)
+
+        if not self.transforms:
+            tr_mean, tr_std = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
+            self.transforms = transforms.Compose([
+                transforms.ToTensor(),
+                # transforms.Normalize(tr_mean, tr_std)
+            ])
+        img = self.transforms(img)
+        target = self.transforms(target)
+
+        return img, target
 
 
 class GeneralRGBDataset(Dataset):
-    def __init__(self, img_list, upscale_factor=3, hr_size=288, loader=load_image_RGB):
+    def __init__(self, img_list, upscale_factor=3, hr_size=512, loader=load_image_RGB):
         super(GeneralRGBDataset, self).__init__()
         self.img_list = img_list
         self.upscale_factor = upscale_factor
@@ -97,34 +107,14 @@ class GeneralRGBDataset(Dataset):
 
     def __getitem__(self, index):
         img = self.loader(self.img_list[index])
-        if img.width < self.hr_size or img.height < self.hr_size:
-            img = img.resize((self.hr_size, self.hr_size))
+        # 添加高斯噪声
+        # gauss_img = img.filter(ImageFilter.GaussianBlur(radius=1))
         width = (self.hr_size // self.upscale_factor) * self.upscale_factor
         height = (self.hr_size // self.upscale_factor) * self.upscale_factor
         hr = hr_transform((height, width))(img)
-        lr = lr_transform((int(height / self.upscale_factor), int(width / self.upscale_factor)))(hr)
-        return lr, hr
-
-    def __len__(self):
-        return len(self.img_list)
-
-
-class GeneralYCbCrDataset(Dataset):
-    def __init__(self, img_list, upscale_factor=3, loader=load_image_ycbcr):
-        super(GeneralYCbCrDataset, self).__init__()
-        self.img_list = img_list
-        self.upscale_factor = upscale_factor
-        self.loader = loader
-
-    def __getitem__(self, index):
-        img, cb, cr = self.loader(self.img_list[index])
-        # 添加高斯噪声
-        # gauss_img = img.filter(ImageFilter.GaussianBlur(radius=1))
-        width = (img.width // self.upscale_factor) * self.upscale_factor
-        height = (img.height // self.upscale_factor) * self.upscale_factor
         lr = lr_transform((height, width), self.upscale_factor)(img)
-        hr = hr_transform((height, width))(img)
-        return lr, hr, cb, cr
+
+        return lr, hr
 
     def __len__(self):
         return len(self.img_list)
@@ -135,7 +125,7 @@ def get_train_image_list():
         "dataset/BSD500/BSR/BSDS500/data/images",
         # "dataset/ms_coco_train/train2014",
         # "dataset/ms_coco_val/val2014",
-        "dataset/ms_coco_test/test2014",
+        # "dataset/ms_coco_test/test2014",
         # "dataset/DIV2K_train/DIV2K_train_HR",
         # "dataset/DIV2K_valid/DIV2K_valid_HR",
     ]
@@ -166,12 +156,11 @@ def get_val_image_list():
 def get_super_resolution_dataloader(args):
     train_list = get_train_image_list()
     val_list = get_val_image_list()
-    print("train on {} samples, batch_size={}".format(len(train_list), args.batch_size))
-    train_loader = DataLoader(GeneralRGBDataset(train_list, upscale_factor=args.upscale_factor),
-                              batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True)
-    val_loader = DataLoader(GeneralRGBDataset(val_list, upscale_factor=args.upscale_factor),
-                            batch_size=args.batch_size, num_workers=args.num_workers)
+    train_loader = DataLoader(GeneralRGBDataset(train_list, upscale_factor=args.upscale_factor))
+    val_loader = DataLoader(GeneralRGBDataset(val_list, upscale_factor=args.upscale_factor))
 
+    # train_loader = DataLoader(SuperResolutionDataset(train_list), batch_size=8)
+    # val_loader = DataLoader(SuperResolutionDataset(val_list), batch_size=8)
     return train_loader, val_loader
 
 

@@ -5,19 +5,8 @@
 # @Time    : 2021/8/5 15:43
 # @Author  : LINYANZHEN
 # @File    : test_script.py
-import os
-import datetime
-import torch.nn as nn
-import torch
-import numpy as np
-from PIL import Image
-import h5py
 import utils
 from PIL import Image
-from torch.autograd import Variable
-from torchvision.transforms import ToTensor
-from PerceptualLoss import lossfunction
-import torch.nn.functional as F
 
 if __name__ == '__main__':
     # image_path_list = ["img_test/test.png",

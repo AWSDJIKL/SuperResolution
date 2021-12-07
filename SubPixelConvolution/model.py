@@ -30,16 +30,19 @@ class SPCNet(nn.Module):
         # 重新排列像素
         self.pixel_shuffle = nn.PixelShuffle(upscale_factor)
         self.relu = nn.ReLU()
-        self.tanh = nn.Tanh()
+        self.bicubic = nn.UpsamplingBilinear2d(scale_factor=upscale_factor)
 
     def forward(self, x):
+        x_in = x
+
         x = self.relu(self.conv1(x))
         x = self.relu(self.conv2(x))
         x = self.conv3(x)
         x = self.pixel_shuffle(x)
-        # x = self.tanh(x)
-        # x = torch.add(x, 1.)
-        # x = torch.mul(x, 0.5)
+
+        x_in = self.bicubic(x_in)
+        x = x + x_in
+
         return x
 
 
@@ -282,7 +285,6 @@ class UpBlock(nn.Module):
         self.relu = nn.LeakyReLU()
 
     def forward(self, x):
-
         x = self.upsample(x)
         x = self.conv(x)
         # x = self.batchnorm(x)
@@ -389,5 +391,3 @@ class Pooling(nn.Module):
     def forward(self, x):
         x = self.pool(x)
         return x
-
-
